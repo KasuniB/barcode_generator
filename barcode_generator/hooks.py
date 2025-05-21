@@ -93,14 +93,14 @@ doctype_js = {
 
 doc_events = {
     "Stock Entry": {
-        "on_submit": "barcode_generator.api.stock_entry_after_submit"
+        "on_submit": "barcode_generator.utils.api.stock_entry_after_submit"
     }
 }
-doc_events = {
-    "POS Closing Entry": {
-        "on_submit": "barcode_generator.barcode_generator.doctype.item_daily_tracker.item_daily_tracker.handle_pos_closing_submit"
-    }
-}
+#doc_events = {
+    #"POS Closing Entry": {
+       # "on_submit": "barcode_generator.barcode_generator.doctype.item_daily_tracker.item_daily_tracker.handle_pos_closing_submit"
+   # }
+#}
 
 # Scheduled Tasks
 # ---------------
