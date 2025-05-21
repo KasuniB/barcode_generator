@@ -6,7 +6,7 @@ with open('requirements.txt') as f:
 
 setup(
     name='barcode_generator',
-    version='0.0.1',
+    version='0.1.0',
     description='Individual Item Barcode Generator',
     author='KasuniB',
     author_email='kasunimoses@gmail.com',

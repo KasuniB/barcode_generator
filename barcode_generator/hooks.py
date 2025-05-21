@@ -1,6 +1,6 @@
 app_name = "barcode_generator"
 app_title = "Barcode Generator"
-app_publisher = "kasuni"
+app_publisher = "KasuniB"
 app_description = "Generate barcodes for ERPNext serial numbers"
 app_icon = "octicon octicon-file-directory"
 app_color = "grey"

@@ -1,0 +1,7 @@
+{
+
+  "devDependencies": {},
+  "dependencies": {
+    "onscan.js": "^1.5.2"
+  }
+}
