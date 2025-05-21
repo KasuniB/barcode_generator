@@ -1,7 +1,7 @@
 import frappe
 import os
 import barcode
-from barcode.writer import ImageWriter
+#from barcode.writer import ImageWriter
 from io import BytesIO
 from PIL import Image
 import base64
