@@ -1,6 +1,6 @@
 app_name = "barcode_generator"
 app_title = "Barcode Generator"
-app_publisher = "Your Company"
+app_publisher = "kasuni"
 app_description = "Generate barcodes for ERPNext serial numbers"
 app_icon = "octicon octicon-file-directory"
 app_color = "grey"
@@ -94,6 +94,11 @@ doctype_js = {
 doc_events = {
     "Stock Entry": {
         "on_submit": "barcode_generator.api.stock_entry_after_submit"
+    }
+}
+doc_events = {
+    "POS Closing Entry": {
+        "on_submit": "barcode_generator.barcode_generator.doctype.item_daily_tracker.item_daily_tracker.handle_pos_closing_submit"
     }
 }
 

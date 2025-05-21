@@ -1,0 +1,125 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2025-05-19 12:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "basic_details_section",
+  "naming_series",
+  "pos_opening_entry",
+  "posting_date",
+  "column_break_4",
+  "scan_barcode_section",
+  "scan_barcode",
+  "serial_numbers_section",
+  "serial_numbers"
+ ],
+ "fields": [
+  {
+   "fieldname": "basic_details_section",
+   "fieldtype": "Section Break",
+   "label": "Basic Details"
+  },
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "POS-SV-.YYYY.-",
+   "reqd": 1
+  },
+  {
+   "fieldname": "pos_opening_entry",
+   "fieldtype": "Link",
+   "label": "POS Opening Entry",
+   "options": "POS Opening Entry",
+   "reqd": 1,
+   "in_list_view": 1,
+   "get_query": "erpnext.accounts.doctype.pos_opening_entry.pos_opening_entry.get_pending_pos_opening_entry"
+  },
+  {
+   "fieldname": "posting_date",
+   "fieldtype": "Date",
+   "label": "Posting Date",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "column_break_4",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "scan_barcode_section",
+   "fieldtype": "Section Break",
+   "label": "Scan Barcode"
+  },
+  {
+   "fieldname": "scan_barcode",
+   "fieldtype": "Data",
+   "label": "Scan Barcode",
+   "description": "Scan serial number barcode to add to the list below"
+  },
+  {
+   "fieldname": "serial_numbers_section",
+   "fieldtype": "Section Break",
+   "label": "Serial Numbers"
+  },
+  {
+   "fieldname": "serial_numbers",
+   "fieldtype": "Table",
+   "label": "Serial Numbers",
+   "options": "POS Serial Validation Item"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-05-19 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Barcode Generator",
+ "name": "POS Serial Validation",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales User",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "is_submittable": 1,
+ "states": []
+}
