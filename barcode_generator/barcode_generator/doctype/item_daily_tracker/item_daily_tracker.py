@@ -26,7 +26,7 @@ class ItemDailyTracker(Document):
             filters={"pos_opening_entry": self.pos_opening_entry},
             fields=["name"]
         )
-        frappe.log_error(f"Found {len(serial_validations)} POS Serial Validations for {self.pos_opening_entry}")
+        
 
         for validation in serial_validations:
             serial_details = frappe.get_all(
@@ -34,7 +34,7 @@ class ItemDailyTracker(Document):
                 filters={"parent": validation.name},
                 fields=["item_code", "item_name", "serial_no"]
             )
-            frappe.log_error(f"Found {len(serial_details)} serial details for validation {validation.name}")
+            
             
             for detail in serial_details:
                 item_code = detail.item_code
@@ -55,7 +55,7 @@ class ItemDailyTracker(Document):
             filters={"pos_opening_entry": self.pos_opening_entry},
             fields=["name"]
         )
-        frappe.log_error(f"Found {len(closing_entries)} POS Closing Entries for {self.pos_opening_entry}")
+        
         
         for closing in closing_entries:
             invoices = frappe.get_all(
@@ -86,7 +86,7 @@ class ItemDailyTracker(Document):
         
         # Combine data and populate the items child table
         all_item_codes = set(list(serial_items.keys()) + list(invoice_items.keys()))
-        frappe.log_error(f"Total unique item codes: {len(all_item_codes)}")
+        
         
         for item_code in all_item_codes:
             serial_count = serial_items.get(item_code, {}).get("serial_count", 0)
@@ -125,7 +125,7 @@ def populate_items(docname, pos_opening_entry):
         if pos_opening_entry:
             doc.fetch_reconciliation_data()
             doc.save()  # Save to persist the changes
-            frappe.log_error(f"Populated {len(doc.items)} items for ItemDailyTracker {docname}")
+            
         else:
             frappe.msgprint(__("No POS Opening Entry provided."))
         
@@ -181,4 +181,4 @@ def handle_pos_closing_submit(doc, method):
         tracker.save(ignore_permissions=True)
         # no need to re-submit if unchanged
 
-    frappe.log_error(f"Auto‑populated Item Daily Tracker {tracker.name} on POS Closing Entry {doc.name}", "Item Daily Tracker")
+    

@@ -87,7 +87,7 @@ class BarcodeGenerator:
 
     def save_or_get_barcode_image(self, serial_no):
         """Create a barcode image and save it to the file system, or retrieve existing one"""
-        logger.info(f"Processing barcode wonderful for serial_no: {serial_no}")
+        
         try:
             # Check if barcode already exists for this serial number
             existing_files = frappe.get_all(
@@ -101,11 +101,11 @@ class BarcodeGenerator:
             )
 
             if existing_files:
-                logger.info(f"Existing barcode found for {serial_no}")
+                
                 return existing_files[0].file_url
 
             # Generate new barcode image
-            logger.info(f"Generating new barcode for {serial_no}")
+            
             barcode_image = self.create_barcode_image(serial_no)
 
             if not barcode_image:
@@ -120,12 +120,12 @@ class BarcodeGenerator:
             barcode_folder = frappe.get_site_path('public', 'files', 'barcodes')
             if not os.path.exists(barcode_folder):
                 os.makedirs(barcode_folder)
-                logger.info(f"Created barcode folder: {barcode_folder}")
+                
 
             # Save the barcode image
             try:
                 barcode_image.save(os.path.join(barcode_folder, file_name))
-                logger.info(f"Saved barcode image to {file_url}")
+                
             except Exception as e:
                 logger.error(f"Error saving barcode image for {serial_no}: {str(e)}")
                 return None
@@ -140,7 +140,7 @@ class BarcodeGenerator:
                     "attached_to_name": serial_no
                 })
                 file_doc.insert(ignore_permissions=True)
-                logger.info(f"Created File document for {serial_no}")
+                
             except Exception as e:
                 logger.error(f"Error creating File document for {serial_no}: {str(e)}")
                 return None
@@ -151,7 +151,7 @@ class BarcodeGenerator:
                 if hasattr(serial_doc, 'custom_barcode_image'):
                     serial_doc.custom_barcode_image = file_url
                     serial_doc.save(ignore_permissions=True)
-                    logger.info(f"Updated Serial No {serial_no} with barcode image")
+                    
             except Exception as e:
                 logger.error(f"Error updating Serial No {serial_no}: {str(e)}")
 
@@ -162,7 +162,7 @@ class BarcodeGenerator:
             return None
 
 def generate_barcodes_for_stock_entry(stock_entry_name):
-    frappe.log_error(f"Starting barcode generation for: {stock_entry_name}", "Barcode Generator")
+    
     """
     Generate barcodes for all serial numbers linked to a stock entry via purchase_document_no.
     """
