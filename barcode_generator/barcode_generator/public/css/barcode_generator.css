@@ -1,0 +1,12 @@
+/* Barcode Generator Styles */
+.barcode-preview {
+    text-align: center;
+    padding: 10px;
+    border: 1px solid #d1d8dd;
+    margin-bottom: 15px;
+}
+
+.barcode-preview img {
+    max-width: 100%;
+    height: auto;
+}
