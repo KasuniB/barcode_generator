@@ -11,7 +11,14 @@ frappe.ui.form.on('POS Serial Validation', {
     setup: function(frm) {
         // Make sure the form is fully set up
         frm.refresh_fields();
-    },
+        frm.set_query('pos_opening_entry', () => {
+        return {
+            filters: {
+                status: 'Open'
+            }
+        };
+    });
+},
     
     // When POS Opening Entry is selected, set the posting date
     pos_opening_entry: function(frm) {
