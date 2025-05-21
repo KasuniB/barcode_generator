@@ -9,7 +9,7 @@ frappe.ui.form.on('Stock Entry', {
                 });
                 
                 frappe.call({
-                    method: 'barcode_generator.api.print_barcodes_for_stock_entry',
+                    method: 'barcode_generator.utils.api.print_barcodes_for_stock_entry',
                     args: {
                         'stock_entry_name': frm.doc.name
                     },

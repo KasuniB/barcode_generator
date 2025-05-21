@@ -8,7 +8,7 @@ frappe.ui.form.on('Serial No', {
             });
             
             frappe.call({
-                method: 'barcode_generator.api.print_barcode_for_serial_no',
+                method: 'barcode_generator.utils.api.print_barcode_for_serial_no',
                 args: {
                     'serial_no': frm.doc.name
                 },
