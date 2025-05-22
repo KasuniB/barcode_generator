@@ -104,7 +104,7 @@ doc_events = {
 """
 doc_events = {
     "POS Closing Entry": {
-       "on_create": "barcode_generator.barcode_generator.doctype.item_daily_tracker.item_daily_tracker.handle_pos_closing_with_validation"
+       "before_submit": "barcode_generator.barcode_generator.doctype.item_daily_tracker.item_daily_tracker.handle_pos_closing_with_validation"
    }
 }
 
