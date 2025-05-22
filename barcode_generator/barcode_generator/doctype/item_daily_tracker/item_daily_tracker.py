@@ -239,12 +239,8 @@ def submit_pos_serial_validations(pos_closing_doc):
                 if not pos_validation_doc.serial_numbers:
                     frappe.logger().info(f"Skipping POS Serial Validation {validation.name} - no serial numbers")
                     continue
-                
-                # Save first if dirty
-                if pos_validation_doc.is_dirty():
-                    pos_validation_doc.save()
-                
                 # Submit the document
+                pos_validation_doc.save()
                 pos_validation_doc.submit()
                 submitted_count += 1
                 
