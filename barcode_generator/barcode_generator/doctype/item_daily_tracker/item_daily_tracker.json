@@ -55,6 +55,7 @@
    "fieldtype": "Table",
    "label": "Item Recon Table",
    "options": "Item Daily Tracker Item",
+   "mandatory": 0
    "reqd": 1
   },
   {
