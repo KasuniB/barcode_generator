@@ -3,7 +3,6 @@ frappe.ui.form.on('POS Serial Validation', {
     refresh: function(frm) {
         frm.trigger('bind_events');
         frm.trigger('setup_autosave');
-        frm.trigger('setup_submit_button');
         
         // Make sure all fields are visible and rendered correctly
         frm.refresh_fields();
