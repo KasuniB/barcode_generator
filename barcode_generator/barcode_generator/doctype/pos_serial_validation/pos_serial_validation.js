@@ -107,7 +107,21 @@ frappe.ui.form.on('POS Serial Validation', {
         const existing_row = existing_rows.find(row => row.serial_no === serial_no);
         
         if(existing_row) {
-            // Show dialog asking if user wants to return the item
+            // Check if the item is currently marked for return (qty = -1)
+            if(existing_row.qty === -1) {
+                // If qty is -1, change it to 1 (item sold after return)
+                frappe.model.set_value(existing_row.doctype, existing_row.name, 'qty', 1);
+                frm.refresh_field('serial_numbers');
+                frm.set_value('scan_barcode', '');
+                
+                frappe.show_alert({
+                    message: __(`Serial Number ${serial_no} changed from return to sale (qty: 1)`),
+                    indicator: 'green'
+                });
+                return;
+            }
+            
+            // If qty is not -1, show dialog asking if user wants to return the item
             frappe.confirm(
                 __(`Serial Number ${serial_no} already exists. Do you want to return this item?`),
                 () => {
