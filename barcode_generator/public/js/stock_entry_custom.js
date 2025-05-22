@@ -1,4 +1,4 @@
-frappe.ui.form.on('Stock Entry', {
+frappe.ui.form.on('Purchase Receipt', {
     refresh: function(frm) {
         // Only add button if document is submitted
         if (frm.doc.docstatus === 1) {
