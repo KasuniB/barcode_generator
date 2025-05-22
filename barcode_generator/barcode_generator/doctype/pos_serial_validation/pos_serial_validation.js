@@ -1,4 +1,3 @@
-
 // pos_serial_validation.js (Client-side script)
 frappe.ui.form.on('POS Serial Validation', {
     refresh: function(frm) {
@@ -12,13 +11,13 @@ frappe.ui.form.on('POS Serial Validation', {
         // Make sure the form is fully set up
         frm.refresh_fields();
         frm.set_query('pos_opening_entry', () => {
-        return {
-            filters: {
-                status: 'Open'
-            }
-        };
-    });
-},
+            return {
+                filters: {
+                    status: 'Open'
+                }
+            };
+        });
+    },
     
     // When POS Opening Entry is selected, set the posting date
     pos_opening_entry: function(frm) {
@@ -105,13 +104,33 @@ frappe.ui.form.on('POS Serial Validation', {
         
         // Check if serial number already exists in the table
         const existing_rows = frm.doc.serial_numbers || [];
-        const exists = existing_rows.some(row => row.serial_no === serial_no);
+        const existing_row = existing_rows.find(row => row.serial_no === serial_no);
         
-        if(exists) {
-            frappe.show_alert({
-                message: __(`Serial Number ${serial_no} already added`),
-                indicator: 'orange'
-            });
+        if(existing_row) {
+            // Show dialog asking if user wants to return the item
+            frappe.confirm(
+                __(`Serial Number ${serial_no} already exists. Do you want to return this item?`),
+                () => {
+                    // User clicked "Yes" - Set quantity to -1 for return
+                    frappe.model.set_value(existing_row.doctype, existing_row.name, 'qty', -1);
+                    frm.refresh_field('serial_numbers');
+                    frm.set_value('scan_barcode', '');
+                    
+                    frappe.show_alert({
+                        message: __(`Serial Number ${serial_no} marked for return (qty: -1)`),
+                        indicator: 'blue'
+                    });
+                },
+                () => {
+                    // User clicked "No" - Continue with normal operations (do nothing)
+                    frm.set_value('scan_barcode', '');
+                    
+                    frappe.show_alert({
+                        message: __(`Operation cancelled for Serial Number ${serial_no}`),
+                        indicator: 'orange'
+                    });
+                }
+            );
             return;
         }
         
@@ -125,7 +144,8 @@ frappe.ui.form.on('POS Serial Validation', {
                         frm.add_child('serial_numbers', {
                             serial_no: serial_no,
                             item_code: item_code,
-                            item_name: item_name
+                            item_name: item_name,
+                            qty: 1 // Default quantity for new items
                         });
                         
                         frm.refresh_field('serial_numbers');
