@@ -95,7 +95,7 @@ frappe.ui.form.on('ItemDailyTracker', {
                         }
                         // Trigger item population
                         frappe.call({
-                            method: "your_app_name.your_module_name.doctype.item_daily_tracker.item_daily_tracker.populate_items",
+                            method: "barcode_generator.barcode_generator.doctype.item_daily_tracker.item_daily_tracker.populate_items",
                             args: {
                                 docname: frm.doc.name || null,
                                 pos_opening_entry: frm.doc.pos_opening_entry
