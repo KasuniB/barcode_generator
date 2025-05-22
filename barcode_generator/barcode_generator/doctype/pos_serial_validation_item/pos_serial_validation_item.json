@@ -8,7 +8,8 @@
  "field_order": [
   "serial_no",
   "item_code",
-  "item_name"
+  "item_name",
+  "qty"
  ],
  "fields": [
   {
@@ -36,7 +37,14 @@
    "in_list_view": 1,
    "label": "Item Name",
    "read_only": 1
-  }
+  },
+  {
+   "fieldname": "qty",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Quantity",
+   "default": 1
+  }  
  ],
  "index_web_pages_for_search": 1,
  "istable": 1,
