@@ -2,9 +2,51 @@
 frappe.ui.form.on('POS Serial Validation', {
     refresh: function(frm) {
         frm.trigger('bind_events');
+        frm.trigger('setup_autosave');
         
         // Make sure all fields are visible and rendered correctly
         frm.refresh_fields();
+    },
+    
+    setup_autosave: function(frm) {
+        // Clear any existing autosave timer
+        if(frm.autosave_timer) {
+            clearTimeout(frm.autosave_timer);
+        }
+        
+        // Set autosave interval (10 seconds = 10000 milliseconds)
+        frm.autosave_interval = 10000;
+        
+        // Function to perform autosave
+        frm.perform_autosave = function() {
+            if(frm.doc.__unsaved && !frm.is_new()) {
+                console.log("Performing autosave...");
+                frm.save().then(() => {
+                    frappe.show_alert({
+                        message: __('Document auto-saved'),
+                        indicator: 'green'
+                    });
+                }).catch(err => {
+                    console.error("Autosave failed:", err);
+                });
+            }
+        };
+        
+        // Function to schedule autosave
+        frm.schedule_autosave = function() {
+            if(frm.autosave_timer) {
+                clearTimeout(frm.autosave_timer);
+            }
+            
+            frm.autosave_timer = setTimeout(() => {
+                frm.perform_autosave();
+            }, frm.autosave_interval);
+        };
+    },
+    
+    // Trigger autosave when serial numbers table is modified
+    serial_numbers_on_form_rendered: function(frm) {
+        frm.schedule_autosave();
     },
     
     setup: function(frm) {
@@ -134,6 +176,9 @@ frappe.ui.form.on('POS Serial Validation', {
                         message: __(`Serial Number ${serial_no} marked for return (qty: -1)`),
                         indicator: 'blue'
                     });
+                    
+                    // Trigger autosave after marking for return
+                    frm.schedule_autosave();
                 },
                 () => {
                     // User clicked "No" - Continue with normal operations (do nothing)
@@ -169,6 +214,9 @@ frappe.ui.form.on('POS Serial Validation', {
                             message: __(`Added Serial Number: ${serial_no}`),
                             indicator: 'green'
                         });
+                        
+                        // Trigger autosave after adding item
+                        frm.schedule_autosave();
                     } else {
                         frappe.show_alert({
                             message: __(`No item found for Serial Number: ${serial_no}`),
