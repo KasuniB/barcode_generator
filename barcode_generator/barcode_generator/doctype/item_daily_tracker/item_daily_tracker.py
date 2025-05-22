@@ -2,7 +2,7 @@
 # For license information, please see license.txt
 
 import frappe
-from frappe import _, __
+from frappe import _
 from frappe.model.document import Document
 
 class ItemDailyTracker(Document):
@@ -112,7 +112,7 @@ class ItemDailyTracker(Document):
             })
         
         if not all_item_codes:
-            frappe.msgprint(__("No items found for the selected POS Opening Entry."))
+            frappe.msgprint(_("No items found for the selected POS Opening Entry."))
 
 @frappe.whitelist()
 def populate_items(docname, pos_opening_entry):
@@ -135,7 +135,7 @@ def populate_items(docname, pos_opening_entry):
             doc.save()  # Save to persist the changes
             
         else:
-            frappe.msgprint(__("No POS Opening Entry provided."))
+            frappe.msgprint(_("No POS Opening Entry provided."))
         
         return {
             "status": "success",
@@ -144,7 +144,7 @@ def populate_items(docname, pos_opening_entry):
         }
     except Exception as e:
         frappe.log_error(f"Error populating items for ItemDailyTracker {docname}: {str(e)}")
-        frappe.msgprint(__("An error occurred while populating items: {0}").format(str(e)))
+        frappe.msgprint(_("An error occurred while populating items: {0}").format(str(e)))
         return {"status": "error", "message": str(e)}
 
 
