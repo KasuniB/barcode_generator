@@ -3,6 +3,7 @@ frappe.ui.form.on('POS Serial Validation', {
     refresh: function(frm) {
         frm.trigger('bind_events');
         frm.trigger('setup_autosave');
+        frm.trigger('setup_submit_button');
         
         // Make sure all fields are visible and rendered correctly
         frm.refresh_fields();
@@ -19,16 +20,24 @@ frappe.ui.form.on('POS Serial Validation', {
         
         // Function to perform autosave
         frm.perform_autosave = function() {
-            if(frm.doc.__unsaved && !frm.is_new()) {
+            // Only autosave if document is in draft state (docstatus = 0)
+            if(frm.is_dirty() && !frm.is_new() && frm.doc.docstatus === 0) {
                 console.log("Performing autosave...");
                 frm.save().then(() => {
+                    console.log("Autosave successful");
                     frappe.show_alert({
                         message: __('Document auto-saved'),
                         indicator: 'green'
                     });
                 }).catch(err => {
                     console.error("Autosave failed:", err);
+                    frappe.show_alert({
+                        message: __('Autosave failed'),
+                        indicator: 'red'
+                    });
                 });
+            } else {
+                console.log("No changes to autosave, document is new, or document is submitted");
             }
         };
         
@@ -38,15 +47,48 @@ frappe.ui.form.on('POS Serial Validation', {
                 clearTimeout(frm.autosave_timer);
             }
             
+            console.log("Scheduling autosave in", frm.autosave_interval / 1000, "seconds");
             frm.autosave_timer = setTimeout(() => {
                 frm.perform_autosave();
             }, frm.autosave_interval);
         };
+        
+        // Also set up periodic autosave that runs continuously
+        frm.start_periodic_autosave = function() {
+            if(frm.periodic_autosave_timer) {
+                clearInterval(frm.periodic_autosave_timer);
+            }
+            
+            frm.periodic_autosave_timer = setInterval(() => {
+                if(frm.is_dirty() && !frm.is_new() && frm.doc.docstatus === 0) {
+                    frm.perform_autosave();
+                }
+            }, frm.autosave_interval);
+        };
+        
+        // Start periodic autosave
+        frm.start_periodic_autosave();
     },
     
-    // Trigger autosave when serial numbers table is modified
-    serial_numbers_on_form_rendered: function(frm) {
-        frm.schedule_autosave();
+    setup_submit_button: function(frm) {
+        // Add custom submit button for submittable documents
+        if(frm.doc.docstatus === 0) { // Draft state
+            frm.add_custom_button(__('Submit Document'), function() {
+                frm.submit();
+            }, __('Actions')).addClass('btn-primary');
+        }
+        
+        if(frm.doc.docstatus === 1) { // Submitted state
+            frm.add_custom_button(__('Cancel Document'), function() {
+                frm.cancel();
+            }, __('Actions')).addClass('btn-danger');
+        }
+        
+        if(frm.doc.docstatus === 2) { // Cancelled state
+            frm.add_custom_button(__('Amend Document'), function() {
+                frm.amend_doc();
+            }, __('Actions')).addClass('btn-warning');
+        }
     },
     
     setup: function(frm) {
@@ -144,6 +186,16 @@ frappe.ui.form.on('POS Serial Validation', {
     add_serial_from_scan: function(frm, serial_no) {
         if(!serial_no || serial_no.trim() === '') return;
         
+        // Prevent scanning if document is submitted
+        if(frm.doc.docstatus === 1) {
+            frappe.show_alert({
+                message: __('Cannot modify submitted document'),
+                indicator: 'red'
+            });
+            frm.set_value('scan_barcode', '');
+            return;
+        }
+        
         // Check if serial number already exists in the table
         const existing_rows = frm.doc.serial_numbers || [];
         const existing_row = existing_rows.find(row => row.serial_no === serial_no);
@@ -179,6 +231,9 @@ frappe.ui.form.on('POS Serial Validation', {
                     
                     // Trigger autosave after marking for return
                     frm.schedule_autosave();
+                    
+                    // Mark form as dirty
+                    frm.dirty();
                 },
                 () => {
                     // User clicked "No" - Continue with normal operations (do nothing)
@@ -217,6 +272,9 @@ frappe.ui.form.on('POS Serial Validation', {
                         
                         // Trigger autosave after adding item
                         frm.schedule_autosave();
+                        
+                        // Also mark form as dirty to ensure autosave detects changes
+                        frm.dirty();
                     } else {
                         frappe.show_alert({
                             message: __(`No item found for Serial Number: ${serial_no}`),
