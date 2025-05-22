@@ -3,9 +3,43 @@ frappe.ui.form.on('POS Serial Validation', {
     refresh: function(frm) {
         frm.trigger('bind_events');
         frm.trigger('setup_autosave');
+        frm.trigger('setup_table_restrictions');
         
         // Make sure all fields are visible and rendered correctly
         frm.refresh_fields();
+    },
+    
+    setup_table_restrictions: function(frm) {
+        // Disable add/remove buttons for serial_numbers table
+        frm.get_field('serial_numbers').grid.cannot_add_rows = true;
+        
+        // Hide the add row button
+        frm.fields_dict.serial_numbers.grid.wrapper.find('.grid-add-row').hide();
+        
+        // Disable delete button for each row
+        frm.fields_dict.serial_numbers.grid.wrapper.find('.grid-row-check').hide();
+        frm.fields_dict.serial_numbers.grid.wrapper.find('.btn-open-row').hide();
+        
+        // Add CSS to hide delete icons and prevent manual editing
+        frappe.dom.add_css(`
+            .grid-delete-row { display: none !important; }
+            .grid-duplicate-row { display: none !important; }
+            .grid-move-row { display: none !important; }
+            .grid-add-row { display: none !important; }
+            .grid-remove-rows { display: none !important; }
+        `);
+        
+        // Make table fields readonly except for scanning
+        if(frm.fields_dict.serial_numbers && frm.fields_dict.serial_numbers.grid) {
+            frm.fields_dict.serial_numbers.grid.grid_rows.forEach(function(row) {
+                if(row.doc) {
+                    row.toggle_editable('serial_no', false);
+                    row.toggle_editable('item_code', false);
+                    row.toggle_editable('item_name', false);
+                    row.toggle_editable('qty', false);
+                }
+            });
+        }
     },
     
     setup_autosave: function(frm) {
@@ -115,6 +149,80 @@ frappe.ui.form.on('POS Serial Validation', {
         }
     },
     
+    // Validate before submission
+    before_submit: function(frm) {
+        if(!frm.doc.serial_numbers || frm.doc.serial_numbers.length === 0) {
+            frappe.msgprint(__('Please add at least one serial number before submitting.'));
+            frappe.validated = false;
+            return false;
+        }
+    },
+    
+    // Handle submission workflow - update statuses after successful submit
+    on_submit: function(frm) {
+        // Update serial number statuses after successful submission
+        frm.update_serial_statuses().then(() => {
+            frappe.show_alert({
+                message: __('Serial number statuses updated successfully'),
+                indicator: 'green'
+            });
+        }).catch(err => {
+            frappe.msgprint(__('Warning: Document submitted but failed to update serial number statuses: ') + err.message);
+            console.error('Failed to update serial statuses:', err);
+        });
+    },
+    
+    // Function to update serial number statuses on submission
+    update_serial_statuses: function(frm) {
+        return new Promise((resolve, reject) => {
+            const serial_updates = [];
+            
+            frm.doc.serial_numbers.forEach(row => {
+                if(row.qty === 1) {
+                    // Change from Active to Delivered
+                    serial_updates.push({
+                        serial_no: row.serial_no,
+                        status: 'Delivered'
+                    });
+                } else if(row.qty === -1) {
+                    // Change from Delivered to Active (return)
+                    serial_updates.push({
+                        serial_no: row.serial_no,
+                        status: 'Active'
+                    });
+                }
+            });
+            
+            if(serial_updates.length === 0) {
+                resolve();
+                return;
+            }
+            
+            // Call server method to update serial statuses
+            frappe.call({
+                method: 'frappe.client.bulk_update',
+                args: {
+                    docs: serial_updates.map(update => ({
+                        doctype: 'Serial No',
+                        name: update.serial_no,
+                        status: update.status
+                    }))
+                },
+                callback: function(r) {
+                    if(r.message) {
+                        console.log('Serial number statuses updated successfully');
+                        resolve();
+                    } else {
+                        reject(new Error('Failed to update serial statuses'));
+                    }
+                },
+                error: function(err) {
+                    reject(err);
+                }
+            });
+        });
+    },
+    
     bind_events: function(frm) {
         console.log("Binding barcode scanning events");
         
@@ -211,6 +319,10 @@ frappe.ui.form.on('POS Serial Validation', {
                     message: __(`Serial Number ${serial_no} changed from return to sale (qty: 1)`),
                     indicator: 'green'
                 });
+                
+                // Trigger autosave and mark as dirty
+                frm.schedule_autosave();
+                frm.dirty();
                 return;
             }
             
@@ -230,8 +342,6 @@ frappe.ui.form.on('POS Serial Validation', {
                     
                     // Trigger autosave after marking for return
                     frm.schedule_autosave();
-                    
-                    // Mark form as dirty
                     frm.dirty();
                 },
                 () => {
@@ -247,45 +357,104 @@ frappe.ui.form.on('POS Serial Validation', {
             return;
         }
         
-        // Get item details from the serial number
-        frappe.db.get_value('Serial No', serial_no, ['item_code', 'item_name'])
+        // Get item details and status from the serial number
+        frappe.db.get_value('Serial No', serial_no, ['item_code', 'item_name', 'status'])
             .then(r => {
                 if(r.message) {
-                    const {item_code, item_name} = r.message;
+                    const {item_code, item_name, status} = r.message;
                     
-                    if(item_code) {
+                    if(!item_code) {
+                        frappe.show_alert({
+                            message: __(`No item found for Serial Number: ${serial_no}`),
+                            indicator: 'red'
+                        });
+                        frm.set_value('scan_barcode', '');
+                        return;
+                    }
+                    
+                    // Check serial number status
+                    if(status === 'Delivered') {
+                        // Item is delivered, ask if it's a return
+                        frappe.confirm(
+                            __(`Serial Number ${serial_no} is currently delivered. Is this a return?`),
+                            () => {
+                                // User confirmed it's a return
+                                frm.add_child('serial_numbers', {
+                                    serial_no: serial_no,
+                                    item_code: item_code,
+                                    item_name: item_name,
+                                    qty: -1 // Return quantity
+                                });
+                                
+                                frm.refresh_field('serial_numbers');
+                                frm.set_value('scan_barcode', '');
+                                
+                                frappe.show_alert({
+                                    message: __(`Added Serial Number ${serial_no} as return (qty: -1)`),
+                                    indicator: 'blue'
+                                });
+                                
+                                frm.schedule_autosave();
+                                frm.dirty();
+                            },
+                            () => {
+                                // User said it's not a return
+                                frappe.show_alert({
+                                    message: __(`Operation cancelled. Serial Number ${serial_no} is not available for sale (status: Delivered)`),
+                                    indicator: 'orange'
+                                });
+                                frm.set_value('scan_barcode', '');
+                            }
+                        );
+                    } else if(status === 'Active') {
+                        // Item is active, proceed with normal sale
                         frm.add_child('serial_numbers', {
                             serial_no: serial_no,
                             item_code: item_code,
                             item_name: item_name,
-                            qty: 1 // Default quantity for new items
+                            qty: 1 // Default quantity for sale
                         });
                         
                         frm.refresh_field('serial_numbers');
                         frm.set_value('scan_barcode', '');
                         
                         frappe.show_alert({
-                            message: __(`Added Serial Number: ${serial_no}`),
+                            message: __(`Added Serial Number: ${serial_no} for sale (qty: 1)`),
                             indicator: 'green'
                         });
                         
-                        // Trigger autosave after adding item
                         frm.schedule_autosave();
-                        
-                        // Also mark form as dirty to ensure autosave detects changes
                         frm.dirty();
                     } else {
+                        // Item has other status (Inactive, etc.)
                         frappe.show_alert({
-                            message: __(`No item found for Serial Number: ${serial_no}`),
+                            message: __(`Serial Number ${serial_no} is not available for sale (status: ${status})`),
                             indicator: 'red'
                         });
+                        frm.set_value('scan_barcode', '');
                     }
                 } else {
                     frappe.show_alert({
                         message: __(`Serial Number not found: ${serial_no}`),
                         indicator: 'red'
                     });
+                    frm.set_value('scan_barcode', '');
                 }
+            })
+            .catch(err => {
+                frappe.show_alert({
+                    message: __(`Error retrieving Serial Number: ${serial_no}`),
+                    indicator: 'red'
+                });
+                frm.set_value('scan_barcode', '');
+                console.error('Error fetching serial number:', err);
             });
+    }
+});
+
+// Restrict manual editing of serial_numbers table
+frappe.ui.form.on('POS Serial Validation Item', {
+    before_serial_numbers_remove: function(frm, cdt, cdn) {
+        frappe.throw(__('Manual removal of items is not allowed. Use barcode scanning only.'));
     }
 });
