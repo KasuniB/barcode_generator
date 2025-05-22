@@ -24,7 +24,10 @@ class ItemDailyTracker(Document):
         # Fetch items from POS Serial Validation
         serial_validations = frappe.get_all(
             "POS Serial Validation",
-            filters={"pos_opening_entry": self.pos_opening_entry},
+            filters={
+                "pos_opening_entry": self.pos_opening_entry,
+                "docstatus": 1
+            },
             fields=["name"]
         )
         
