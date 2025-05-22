@@ -77,6 +77,7 @@
  "links": [],
  "modified": "2025-05-19 12:00:00.000000",
  "modified_by": "Administrator",
+ "is_submittable": 1,
  "module": "Barcode Generator",
  "name": "POS Serial Validation",
  "naming_rule": "By \"Naming Series\" field",
@@ -120,6 +121,5 @@
  ],
  "sort_field": "modified",
  "sort_order": "DESC",
- "is_submittable": 1,
  "states": []
 }
