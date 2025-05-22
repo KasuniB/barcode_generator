@@ -30,7 +30,7 @@ app_license = "MIT"
 
 # include js in doctype views
 doctype_js = {
-    "Stock Entry": "public/js/stock_entry_custom.js",
+    "Purchase Receipt": "public/js/stock_entry_custom.js",
     "Serial No": "public/js/serial_no_custom.js"
 }
 
@@ -92,7 +92,7 @@ doctype_js = {
 # Hook on document methods and events
 
 doc_events = {
-    "Stock Entry": {
+    "Purchase Receipt": {
         "on_submit": "barcode_generator.utils.api.stock_entry_after_submit"
     }
 }
