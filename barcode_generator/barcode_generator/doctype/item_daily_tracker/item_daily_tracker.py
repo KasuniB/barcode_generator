@@ -29,10 +29,15 @@ class ItemDailyTracker(Document):
         
 
         for validation in serial_validations:
+            # UPDATED: Changed doctype name and added qty filter
+            # Replace "Serial Numbers Table" with your actual child table name
             serial_details = frappe.get_all(
-                "Serial Numbers Table",
-                filters={"parent": validation.name},
-                fields=["item_code", "item_name", "serial_no"]
+                "POS Serial Validation Item",  # Change this to your actual child table name
+                filters={
+                    "parent": validation.name,
+                    "qty": ["!=", -1]  # Filter out items where qty = -1
+                },
+                fields=["item_code", "item_name", "serial_no", "qty"]  # Added qty field
             )
             
             
@@ -47,7 +52,9 @@ class ItemDailyTracker(Document):
                 
                 if detail.serial_no not in serial_items[item_code]["serials"]:
                     serial_items[item_code]["serials"].append(detail.serial_no)
-                    serial_items[item_code]["serial_count"] += 1
+                    # UPDATED: Use qty field if available, otherwise count as 1
+                    qty_to_add = detail.qty if detail.qty and detail.qty > 0 else 1
+                    serial_items[item_code]["serial_count"] += qty_to_add
         
         # Fetch items from POS Closing Entry
         closing_entries = frappe.get_all(
@@ -177,8 +184,6 @@ def handle_pos_closing_submit(doc, method):
             # If your tracker is meant to stay as a Draft, you can skip submission
             pass
     else:
-        # Already submitted—just update and re-submit if needed
+       
         tracker.save(ignore_permissions=True)
-        # no need to re-submit if unchanged
-
-    
+        
