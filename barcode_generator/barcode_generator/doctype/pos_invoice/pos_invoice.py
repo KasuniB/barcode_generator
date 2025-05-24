@@ -795,24 +795,6 @@ class POSInvoice(SalesInvoice):
 		if pr:
 			return frappe.get_doc("Payment Request", pr)
 
-    def validate(self):
-        # Skip serial number validation for POS invoices
-        self.skip_serial_number_validation = True
-        for item in self.items:
-            # Clear serial number fields but keep item functionality
-            item.serial_and_batch_bundle = None
-            item.serial_no = None
-            item.batch_no = None
-        super().validate()
-    
-    def before_submit(self):
-        # Ensure no serial number validation on submit
-        for item in self.items:
-            item.serial_and_batch_bundle = None
-            item.serial_no = None
-        super().before_submit()
-
-
 @frappe.whitelist()
 def get_stock_availability(item_code, warehouse):
 	if frappe.db.get_value("Item", item_code, "is_stock_item"):
