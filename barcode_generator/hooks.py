@@ -36,9 +36,9 @@ doctype_js = {
 	
 }
 
-"""app_include_js = [
-    "barcode_generator/doctype/pos_invoice/pos_invoice.js"
-]"""
+#app_include_js = [
+  #  "barcode_generator/doctype/pos_invoice/pos_invoice.js"
+#]
 
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
