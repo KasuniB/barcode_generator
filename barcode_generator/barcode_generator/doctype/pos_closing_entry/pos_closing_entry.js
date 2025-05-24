@@ -56,7 +56,6 @@ frappe.ui.form.on("POS Closing Entry", {
 			}
 		}
 	},
-
 	refresh: function (frm) {
 		if (frm.doc.docstatus == 1 && frm.doc.status == "Failed") {
 			const issue = '<a id="jump_to_error" style="text-decoration: underline;">issue</a>';
@@ -79,6 +78,10 @@ frappe.ui.form.on("POS Closing Entry", {
 			});
 		}
 	},
+    refresh: async function is_cashier_profile(pos_profile) {
+    const profile = await frappe.db.get_doc("POS Profile", pos_profile);
+    return profile.name.toLowerCase().includes('tenacity') || profile.is_cashier === 1;
+},
 
 	pos_opening_entry: async function(frm) {
     if (frm.doc.pos_opening_entry && frm.doc.period_start_date && 
