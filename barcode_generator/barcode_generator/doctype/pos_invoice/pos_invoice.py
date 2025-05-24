@@ -431,7 +431,7 @@ class POSInvoice(SalesInvoice):
 			frappe.throw(_("Sales Invoice mode is activated in POS. Please create Sales Invoice instead."))
 
 	def validate_serialised_or_batched_item(self):
-		"""error_msg = []
+		error_msg = []
 		for d in self.get("items"):
 			error_msg = ""
 			if d.get("has_serial_no") and (
@@ -447,7 +447,7 @@ class POSInvoice(SalesInvoice):
 				error_msg = f"Row #{d.idx}: Please select Batch No. for item {bold(d.item_code)}"
 
 		if error_msg:
-			frappe.throw(error_msg, title=_("Serial / Batch Bundle Missing"), as_list=True)"""
+			frappe.throw(error_msg, title=_("Serial / Batch Bundle Missing"), as_list=True)
 
 	def validate_return_items_qty(self):
 		if not self.get("is_return"):
@@ -795,6 +795,23 @@ class POSInvoice(SalesInvoice):
 		if pr:
 			return frappe.get_doc("Payment Request", pr)
 
+    def validate(self):
+        # Skip serial number validation for POS invoices
+        self.skip_serial_number_validation = True
+        for item in self.items:
+            # Clear serial number fields but keep item functionality
+            item.serial_and_batch_bundle = None
+            item.serial_no = None
+            item.batch_no = None
+        super().validate()
+    
+    def before_submit(self):
+        # Ensure no serial number validation on submit
+        for item in self.items:
+            item.serial_and_batch_bundle = None
+            item.serial_no = None
+        super().before_submit()
+
 
 @frappe.whitelist()
 def get_stock_availability(item_code, warehouse):
@@ -946,3 +963,6 @@ def get_item_group(pos_profile):
 			item_groups.extend(get_descendants_of("Item Group", row.item_group))
 
 	return list(set(item_groups))
+
+
+    

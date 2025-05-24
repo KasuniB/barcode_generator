@@ -33,7 +33,12 @@ doctype_js = {
     "Purchase Receipt": "public/js/stock_entry_custom.js",
     "Serial No": "public/js/serial_no_custom.js"
 	
+	
 }
+
+app_include_js = [
+    "barcode_generator/doctype/pos_invoice/pos_invoice.js"
+]
 
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
@@ -97,12 +102,7 @@ doc_events = {
         "on_submit": "barcode_generator.utils.api.stock_entry_after_submit"
     }
 }
-"""doc_events = {
-    "POS Closing Entry": {
-       "on_submit": "barcode_generator.barcode_generator.doctype.item_daily_tracker.item_daily_tracker.handle_pos_closing_submit"
-   }
-} 
-"""
+
 doc_events = {
     "POS Closing Entry": {
        "before_submit": "barcode_generator.barcode_generator.doctype.item_daily_tracker.item_daily_tracker.handle_pos_closing_with_validation"
