@@ -1,11 +1,11 @@
 
-frappe.ui.form.on('ItemDailyTracker', {
+frappe.ui.form.on('Item Daily Tracker', {
     refresh: function(frm) {
         // Add custom button to manually trigger population (optional)
         frm.add_custom_button(__('Fetch Data'), function() {
             if (frm.doc.pos_opening_entry) {
                 frappe.call({
-                    method: "your_app_name.your_module_name.doctype.item_daily_tracker.item_daily_tracker.populate_items",
+                    method: "barcode_generator.barcode_generator.doctype.item_daily_tracker.item_daily_tracker.populate_items",
                     args: {
                         docname: frm.doc.name || null,
                         pos_opening_entry: frm.doc.pos_opening_entry
@@ -58,7 +58,7 @@ frappe.ui.form.on('ItemDailyTracker', {
                             }
                             // Trigger item population
                             frappe.call({
-                                method: "your_app_name.your_module_name.doctype.item_daily_tracker.item_daily_tracker.populate_items",
+                                method: "barcode_generator.barcode_generator.doctype.item_daily_tracker.item_daily_tracker.populate_items",
                                 args: {
                                     docname: frm.doc.name || null,
                                     pos_opening_entry: frm.doc.pos_opening_entry
