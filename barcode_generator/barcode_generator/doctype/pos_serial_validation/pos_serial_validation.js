@@ -308,7 +308,7 @@ frappe.ui.form.on('POS Serial Validation', {
                     }
                     
                     // Check serial number status
-                    if(status === 'Delivered') {
+                    if(status === 'Consumed') {
                         // Item is delivered, ask if it's a return
                         frappe.confirm(
                             __(`Serial Number ${serial_no} is currently delivered. Is this a return?`),
