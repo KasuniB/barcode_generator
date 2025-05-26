@@ -20,7 +20,7 @@ def print_barcodes_for_stock_entry(stock_entry_name):
 @frappe.whitelist()
 def print_barcode_for_serial_no(serial_no):
     """API endpoint to print barcode for a single serial number"""
-    if not frappe.has_permission("Serial No", "read"):
+    if not frappe.has_permission("Tenacity Serial No", "read"):
         frappe.throw("Insufficient permissions to print barcode")
         
     return barcode_generator.print_barcode_for_serial_no(serial_no)

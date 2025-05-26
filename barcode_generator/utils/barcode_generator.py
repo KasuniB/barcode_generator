@@ -93,7 +93,7 @@ class BarcodeGenerator:
             existing_files = frappe.get_all(
                 "File",
                 filters={
-                    "attached_to_doctype": "Serial No",
+                    "attached_to_doctype": "Tenacity Serial No",
                     "attached_to_name": serial_no,
                     "file_name": f"barcodes/{serial_no}.png"
                 },
@@ -136,7 +136,7 @@ class BarcodeGenerator:
                     "doctype": "File",
                     "file_name": file_name,
                     "file_url": file_url,
-                    "attached_to_doctype": "Serial No",
+                    "attached_to_doctype": "Tenacity Serial No",
                     "attached_to_name": serial_no
                 })
                 file_doc.insert(ignore_permissions=True)
@@ -147,7 +147,7 @@ class BarcodeGenerator:
 
             # Update Serial No with barcode image reference (if custom field exists)
             try:
-                serial_doc = frappe.get_doc("Serial No", serial_no)
+                serial_doc = frappe.get_doc("Tenacity Serial No", serial_no)
                 if hasattr(serial_doc, 'custom_barcode_image'):
                     serial_doc.custom_barcode_image = file_url
                     serial_doc.save(ignore_permissions=True)
@@ -345,7 +345,7 @@ def print_barcode_for_serial_no(serial_no):
     """Generate a PDF with a single barcode for a serial number"""
     try:
         # Get the serial number details
-        serial = frappe.get_doc("Serial No", serial_no)
+        serial = frappe.get_doc("Tenacity Serial No", serial_no)
         generator = BarcodeGenerator()
 
         # Generate or get existing barcode
@@ -364,7 +364,7 @@ def print_barcode_for_serial_no(serial_no):
         margin_y = 20
 
         # Get company logo for branding
-        company = frappe.get_value("Serial No", serial_no, "company")
+        company = frappe.get_value("Tenacity Serial No", serial_no, "company")
         company_logo = frappe.get_value("Company", company, "company_logo") if company else None
         logo_path = None
 
@@ -410,7 +410,7 @@ def print_barcode_for_serial_no(serial_no):
             "doctype": "File",
             "file_name": f"{serial_no}_barcode.pdf",
             "file_url": file_url,
-            "attached_to_doctype": "Serial No",
+            "attached_to_doctype": "Tenacity Serial No",
             "attached_to_name": serial_no
         })
         file_doc.insert(ignore_permissions=True)
