@@ -1,4 +1,4 @@
-frappe.ui.form.on('Serial No', {
+frappe.ui.form.on('Tenacity Serial No', {
     refresh: function(frm) {
         // Only add button if document is submitted
         frm.add_custom_button(__('Print Barcode'), function() {

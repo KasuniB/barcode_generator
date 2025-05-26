@@ -177,7 +177,7 @@ def generate_barcodes_for_stock_entry(stock_entry_name):
         serial_nos = frappe.get_all(
             "Tenacity Serial No",
             filters={"purchase_document_no": stock_entry_name},
-            fields=["name", "item_code"]
+            fields=["name", "serial_no", "item_code"]
         )
 
         # If no serial numbers exist, create them
@@ -194,14 +194,14 @@ def generate_barcodes_for_stock_entry(stock_entry_name):
                     last_serial = frappe.get_all(
                         "Tenacity Serial No",
                         filters={"item_code": item_code},
-                        fields=["name"],
+                        fields=["serial_no"],
                         order_by="creation desc",
                         limit=1
                     )
 
                     # Extract the serial number part (####) or start from 0
                     if last_serial:
-                        last_no = last_serial[0].name.split('-')[-1]
+                        last_no = last_serial[0].serial_no.split('-')[-1]
                         try:
                             serial_count = int(last_no) + 1
                         except ValueError:
@@ -215,19 +215,19 @@ def generate_barcodes_for_stock_entry(stock_entry_name):
                     # Create new Tenacity Serial No document
                     serial_doc = frappe.get_doc({
                         "doctype": "Tenacity Serial No",
-                        "name": serial_no,
+                        "serial_no": serial_no,
                         "item_code": item_code,
                         "purchase_document_no": stock_entry_name
                     })
                     serial_doc.insert(ignore_permissions=True)
-                    logger.info(f"Created Tenacity Serial No: {serial_no}")
+                    logger.info(f"Created Tenacity Serial No: {serial_no} with name {serial_doc.name}")
 
                     # Add to serial_nos list for barcode generation
-                    serial_nos.append({"name": serial_no, "item_code": item_code})
+                    serial_nos.append({"name": serial_doc.name, "serial_no": serial_no, "item_code": item_code})
 
         # Process each serial number
         for serial in serial_nos:
-            serial_no = serial.name
+            serial_no = serial.serial_no
             # Generate or get existing barcode
             barcode_url = generator.save_or_get_barcode_image(serial_no)
             if barcode_url:
@@ -247,8 +247,8 @@ def generate_barcodes_for_stock_entry(stock_entry_name):
     except Exception as e:
         frappe.db.rollback()
         frappe.log_error(f"Error generating barcodes: {str(e)}", "Barcode Generator")
-        return []
-   
+        return []   
+        
 def print_barcodes_for_stock_entry(stock_entry_name):
     """Generate a PDF with one barcode per page for a stock entry, compatible with label printers"""
     try:
