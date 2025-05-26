@@ -150,69 +150,13 @@ frappe.ui.form.on('POS Serial Validation', {
     },
     
     // Handle submission workflow - update statuses after successful submit
-    on_submit: function(frm) {
-        // Update serial number statuses after successful submission
-        frm.update_serial_statuses().then(() => {
-            frappe.show_alert({
-                message: __('Serial number statuses updated successfully'),
-                indicator: 'green'
-            });
-        }).catch(err => {
-            frappe.msgprint(__('Warning: Document submitted but failed to update serial number statuses: ') + err.message);
-            console.error('Failed to update serial statuses:', err);
+        on_submit: function(frm) {
+        console.log('Debug: on_submit triggered for POS Serial Validation:', frm.doc.name, 'Docstatus:', frm.doc.docstatus);
+        frappe.show_alert({
+            message: __('Document submitted. Serial number statuses are being updated.'),
+            indicator: 'blue'
         });
     },
-    
-    // Function to update serial number statuses on submission
-    update_serial_statuses: function(frm) {
-    return new Promise((resolve, reject) => {
-        const serial_updates = [];
-        
-        frm.doc.serial_numbers.forEach(row => {
-            if(row.qty === 1) {
-                // Change from Active to Consumed for sales
-                serial_updates.push({
-                    serial_no: row.serial_no,
-                    status: 'Consumed'
-                });
-            } else if(row.qty === -1) {
-                // Change from Consumed (or Delivered) to Active for returns
-                serial_updates.push({
-                    serial_no: row.serial_no,
-                    status: 'Active'
-                });
-            }
-        });
-        
-        if(serial_updates.length === 0) {
-            resolve();
-            return;
-        }
-        
-        // Call server method to update serial statuses
-        frappe.call({
-            method: 'frappe.client.bulk_update',
-            args: {
-                docs: serial_updates.map(update => ({
-                    doctype: 'Tenacity Serial No',
-                    name: update.serial_no,
-                    status: update.status
-                }))
-            },
-            callback: function(r) {
-                if(r.message) {
-                    console.log('Serial number statuses updated successfully');
-                    resolve();
-                } else {
-                    reject(new Error('Failed to update serial statuses'));
-                }
-            },
-            error: function(err) {
-                reject(err);
-            }
-        });
-    });
-},
     
     bind_events: function(frm) {
         console.log("Binding barcode scanning events");
