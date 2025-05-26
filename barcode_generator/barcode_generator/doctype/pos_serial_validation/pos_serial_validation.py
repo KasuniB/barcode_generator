@@ -40,7 +40,7 @@ class POSSerialValidation(Document):
 
             if not self.serial_numbers:
                 frappe.log_error("Debug: No serial numbers in child table", "POS Serial Validation")
-                frappe.msgprint(__("No serial numbers to update"), title="Warning")
+                frappe.msgprint(_("No serial numbers to update"), title="Warning")
                 return
 
             serial_updates = []
@@ -62,7 +62,7 @@ class POSSerialValidation(Document):
 
             if not serial_updates:
                 frappe.log_error("Debug: No valid serial updates to process", "POS Serial Validation")
-                frappe.msgprint(__("No valid serial numbers to update"), title="Warning")
+                frappe.msgprint(_("No valid serial numbers to update"), title="Warning")
                 return
 
             for update in serial_updates:
@@ -75,17 +75,17 @@ class POSSerialValidation(Document):
                     frappe.log_error(f"Debug: Updated serial_no: {update['serial_no']} to status: {serial_doc.status}", "POS Serial Validation")
                 except frappe.DoesNotExistError:
                     frappe.log_error(f"Debug: Tenacity Serial No not found for serial_no: {update['serial_no']}", "POS Serial Validation")
-                    frappe.msgprint(__("Serial number {0} not found in Tenacity Serial No").format(update["serial_no"]), title="Error")
+                    frappe.msgprint(_("Serial number {0} not found in Tenacity Serial No").format(update["serial_no"]), title="Error")
                     continue
                 except Exception as e:
                     frappe.log_error(f"Debug: Error updating serial_no: {update['serial_no']}, error: {str(e)}", "POS Serial Validation")
-                    frappe.msgprint(__("Failed to update serial number {0}: {1}").format(update["serial_no"], str(e)), title="Error")
+                    frappe.msgprint(_("Failed to update serial number {0}: {1}").format(update["serial_no"], str(e)), title="Error")
                     continue
 
             frappe.db.commit()
-            frappe.msgprint(__("Serial number statuses updated successfully"), title="Success")
+            frappe.msgprint(_("Serial number statuses updated successfully"), title="Success")
 
         except Exception as e:
             frappe.db.rollback()
             frappe.log_error(f"Error in on_submit for POS Serial Validation: {str(e)}", "POS Serial Validation")
-            frappe.msgprint(__("Failed to update serial number statuses: {0}").format(str(e)), title="Error")
+            frappe.msgprint(_("Failed to update serial number statuses: {0}").format(str(e)), title="Error")
