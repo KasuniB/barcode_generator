@@ -17,11 +17,28 @@ def print_barcodes_for_stock_entry(stock_entry_name):
     if not frappe.has_permission("Purchase Receipt", "read"):
         frappe.throw("Insufficient permissions to print barcodes")
     
-    # First ensure serial numbers and barcodes are generated
-    tenacity_serial_generator.process_purchase_receipt(stock_entry_name)
+    # Check if purchase receipt exists
+    if not frappe.db.exists("Purchase Receipt", stock_entry_name):
+        frappe.throw(f"Purchase Receipt {stock_entry_name} does not exist")
     
-    # Then generate the PDF
-    return tenacity_serial_generator.print_barcodes_for_purchase_receipt(stock_entry_name)
+    try:
+        # First ensure serial numbers and barcodes are generated
+        result = tenacity_serial_generator.process_purchase_receipt(stock_entry_name)
+        
+        if not result.get("serials"):
+            frappe.throw("No serial numbers were generated. Check if there are valid items in the purchase receipt.")
+        
+        # Then generate the PDF
+        pdf_url = tenacity_serial_generator.print_barcodes_for_purchase_receipt(stock_entry_name)
+        
+        if not pdf_url:
+            frappe.throw("Failed to generate barcode PDF. Check the error log for details.")
+            
+        return pdf_url
+        
+    except Exception as e:
+        frappe.log_error(f"Error in print_barcodes_for_stock_entry: {str(e)}", "Tenacity Serial Generator")
+        frappe.throw(f"Error generating barcodes: {str(e)}")
 
 @frappe.whitelist()
 def print_barcode_for_serial_no(serial_no):
@@ -38,7 +55,27 @@ def generate_serials_for_purchase_receipt(purchase_receipt_name):
     if not frappe.has_permission("Purchase Receipt", "write"):
         frappe.throw("Insufficient permissions to generate serial numbers")
     
-    return tenacity_serial_generator.generate_serials_for_purchase_receipt(purchase_receipt_name)
+    # Check if purchase receipt exists
+    if not frappe.db.exists("Purchase Receipt", purchase_receipt_name):
+        frappe.throw(f"Purchase Receipt {purchase_receipt_name} does not exist")
+    
+    # Get purchase receipt to check if it has items
+    try:
+        pr_doc = frappe.get_doc("Purchase Receipt", purchase_receipt_name)
+        if not pr_doc.items:
+            frappe.throw(f"Purchase Receipt {purchase_receipt_name} has no items")
+        
+        frappe.logger().info(f"Purchase Receipt {purchase_receipt_name} has {len(pr_doc.items)} items")
+        
+    except Exception as e:
+        frappe.throw(f"Error accessing Purchase Receipt {purchase_receipt_name}: {str(e)}")
+    
+    result = tenacity_serial_generator.generate_serials_for_purchase_receipt(purchase_receipt_name)
+    
+    if not result:
+        frappe.throw("No serial numbers were generated. Check if there are valid items in the purchase receipt and check the error log for details.")
+    
+    return result
 
 @frappe.whitelist()
 def process_purchase_receipt(purchase_receipt_name):
@@ -47,6 +84,49 @@ def process_purchase_receipt(purchase_receipt_name):
         frappe.throw("Insufficient permissions to process purchase receipt")
     
     return tenacity_serial_generator.process_purchase_receipt(purchase_receipt_name)
+
+# Debug function to help troubleshoot
+@frappe.whitelist()
+def debug_purchase_receipt(purchase_receipt_name):
+    """Debug function to check purchase receipt details"""
+    try:
+        if not frappe.db.exists("Purchase Receipt", purchase_receipt_name):
+            return {"error": f"Purchase Receipt {purchase_receipt_name} does not exist"}
+        
+        pr_doc = frappe.get_doc("Purchase Receipt", purchase_receipt_name)
+        
+        debug_info = {
+            "purchase_receipt": purchase_receipt_name,
+            "status": pr_doc.docstatus,
+            "company": pr_doc.company,
+            "items_count": len(pr_doc.items) if pr_doc.items else 0,
+            "items": []
+        }
+        
+        if pr_doc.items:
+            for item in pr_doc.items:
+                item_exists = frappe.db.exists("Item", item.item_code)
+                debug_info["items"].append({
+                    "item_code": item.item_code,
+                    "item_name": getattr(item, 'item_name', 'N/A'),
+                    "qty": item.qty,
+                    "item_exists": item_exists
+                })
+        
+        # Check existing Tenacity Serial Numbers
+        existing_serials = frappe.get_all(
+            "Tenacity Serial No",
+            filters={"purchase_document_no": purchase_receipt_name},
+            fields=["name", "item_code", "status"]
+        )
+        
+        debug_info["existing_serials"] = existing_serials
+        debug_info["existing_serials_count"] = len(existing_serials)
+        
+        return debug_info
+        
+    except Exception as e:
+        return {"error": str(e)}
 
 # Additional API endpoints for status management
 @frappe.whitelist()

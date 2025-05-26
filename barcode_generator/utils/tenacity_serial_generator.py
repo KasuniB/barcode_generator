@@ -61,30 +61,42 @@ class TenacitySerialGenerator:
         created_serials = []
         
         try:
+            # Get item details first
+            item_doc = frappe.get_doc("Item", item_code)
+            
             for i in range(qty):
                 # Generate serial number
                 serial_no = self.generate_serial_number(item_code)
                 if not serial_no:
+                    logger.error(f"Failed to generate serial number for {item_code}")
                     continue
                 
-                # Get item details
-                item_doc = frappe.get_doc("Item", item_code)
-                
                 # Create Tenacity Serial No document
-                serial_doc = frappe.get_doc({
-                    "doctype": "Tenacity Serial No",
-                    "name": serial_no,
-                    "item_code": item_code,
-                    "item_name": item_doc.item_name,
-                    "purchase_document_no": purchase_receipt,
-                    "status": "Active"  # Adjust field name as per your doctype
-                })
-                
-                serial_doc.insert(ignore_permissions=True)
-                created_serials.append(serial_no)
+                try:
+                    serial_doc = frappe.get_doc({
+                        "doctype": "Tenacity Serial No",
+                        "item_code": item_code,
+                        "item_name": item_doc.item_name,
+                        "purchase_document_no": purchase_receipt,
+                        "status": "Active"  # Status options: Active, Consumed
+                    })
+                    
+                    # Set the name manually
+                    serial_doc.name = serial_no
+                    serial_doc.insert(ignore_permissions=True)
+                    created_serials.append(serial_no)
+                    logger.info(f"Created Tenacity Serial No: {serial_no}")
+                    
+                except frappe.DuplicateEntryError:
+                    logger.warning(f"Serial number {serial_no} already exists, skipping")
+                    continue
+                except Exception as e:
+                    logger.error(f"Error creating serial doc {serial_no}: {str(e)}")
+                    continue
                 
         except Exception as e:
             logger.error(f"Error creating Tenacity Serial No for {item_code}: {str(e)}")
+            frappe.log_error(f"Error creating Tenacity Serial No for {item_code}: {str(e)}", "Tenacity Serial Generator")
             
         return created_serials
 
@@ -188,30 +200,52 @@ def generate_serials_for_purchase_receipt(purchase_receipt_name):
         generator = TenacitySerialGenerator()
         created_serials = []
 
+        logger.info(f"Processing Purchase Receipt: {purchase_receipt_name}")
+        logger.info(f"Number of items in receipt: {len(purchase_receipt.items)}")
+
         # Process each item in the purchase receipt
         for item in purchase_receipt.items:
             item_code = item.item_code
             qty = int(item.qty) if item.qty else 1
             
-            # Create serial numbers for this item
-            serials = generator.create_tenacity_serial_no(
-                item_code=item_code,
-                purchase_receipt=purchase_receipt_name,
-                qty=qty
-            )
+            logger.info(f"Processing item: {item_code}, qty: {qty}")
             
-            created_serials.extend(serials)
+            # Check if item exists
+            if not frappe.db.exists("Item", item_code):
+                logger.error(f"Item {item_code} does not exist")
+                continue
+            
+            # Create serial numbers for this item
+            try:
+                serials = generator.create_tenacity_serial_no(
+                    item_code=item_code,
+                    purchase_receipt=purchase_receipt_name,
+                    qty=qty
+                )
+                
+                created_serials.extend(serials)
+                logger.info(f"Created {len(serials)} serials for item {item_code}")
+                
+            except Exception as e:
+                logger.error(f"Error creating serials for item {item_code}: {str(e)}")
+                frappe.log_error(f"Error creating serials for item {item_code}: {str(e)}", "Tenacity Serial Generator")
+                continue
 
         if not created_serials:
-            frappe.log_error(f"No serial numbers created for purchase receipt {purchase_receipt_name}", "Tenacity Serial Generator")
+            error_msg = f"No serial numbers created for purchase receipt {purchase_receipt_name}"
+            logger.error(error_msg)
+            frappe.log_error(error_msg, "Tenacity Serial Generator")
             return []
 
         frappe.db.commit()
+        logger.info(f"Successfully created {len(created_serials)} serial numbers")
         return created_serials
 
     except Exception as e:
         frappe.db.rollback()
-        frappe.log_error(f"Error generating serial numbers: {str(e)}", "Tenacity Serial Generator")
+        error_msg = f"Error generating serial numbers for {purchase_receipt_name}: {str(e)}"
+        logger.error(error_msg)
+        frappe.log_error(error_msg, "Tenacity Serial Generator")
         return []
 
 def generate_barcodes_for_purchase_receipt(purchase_receipt_name):
@@ -423,6 +457,100 @@ def print_barcode_for_tenacity_serial(serial_no):
     except Exception as e:
         frappe.log_error(f"Error printing barcode: {str(e)}", "Tenacity Serial Generator")
         return None
+
+def update_serial_status(serial_no, status):
+    """Update the status of a Tenacity Serial Number"""
+    try:
+        if status not in ["Active", "Consumed"]:
+            frappe.throw(f"Invalid status. Must be 'Active' or 'Consumed', got '{status}'")
+        
+        serial_doc = frappe.get_doc("Tenacity Serial No", serial_no)
+        serial_doc.status = status
+        serial_doc.save(ignore_permissions=True)
+        frappe.db.commit()
+        
+        return True
+        
+    except Exception as e:
+        logger.error(f"Error updating status for {serial_no}: {str(e)}")
+        return False
+
+def consume_serial_number(serial_no):
+    """Mark a serial number as consumed"""
+    return update_serial_status(serial_no, "Consumed")
+
+def activate_serial_number(serial_no):
+    """Mark a serial number as active"""
+    return update_serial_status(serial_no, "Active")
+
+def get_serials_by_status(status=None, item_code=None, purchase_receipt=None):
+    """Get serial numbers filtered by status and other criteria"""
+    try:
+        filters = {}
+        
+        if status and status in ["Active", "Consumed"]:
+            filters["status"] = status
+        
+        if item_code:
+            filters["item_code"] = item_code
+            
+        if purchase_receipt:
+            filters["purchase_document_no"] = purchase_receipt
+        
+        serials = frappe.get_all(
+            "Tenacity Serial No",
+            filters=filters,
+            fields=["name", "item_code", "status", "purchase_document_no", "creation"],
+            order_by="creation desc"
+        )
+        
+        return serials
+        
+    except Exception as e:
+        logger.error(f"Error fetching serials by status: {str(e)}")
+        return []
+
+def get_available_serials_for_item(item_code, limit=None):
+    """Get active (available) serial numbers for a specific item"""
+    try:
+        filters = {
+            "item_code": item_code,
+            "status": "Active"
+        }
+        
+        serials = frappe.get_all(
+            "Tenacity Serial No",
+            filters=filters,
+            fields=["name", "creation"],
+            order_by="creation asc",
+            limit=limit
+        )
+        
+        return [serial.name for serial in serials]
+        
+    except Exception as e:
+        logger.error(f"Error fetching available serials for {item_code}: {str(e)}")
+        return []
+
+def consume_serials_for_delivery(item_code, qty):
+    """Consume the oldest active serial numbers for delivery/issue"""
+    try:
+        # Get the oldest active serials for this item
+        available_serials = get_available_serials_for_item(item_code, limit=qty)
+        
+        if len(available_serials) < qty:
+            frappe.throw(f"Only {len(available_serials)} active serial numbers available for item {item_code}, but {qty} requested")
+        
+        consumed_serials = []
+        for serial_no in available_serials[:qty]:
+            if consume_serial_number(serial_no):
+                consumed_serials.append(serial_no)
+        
+        return consumed_serials
+        
+    except Exception as e:
+        logger.error(f"Error consuming serials for delivery: {str(e)}")
+        return []
 
 # Convenience function to generate both serials and barcodes
 def process_purchase_receipt(purchase_receipt_name):
