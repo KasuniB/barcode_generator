@@ -151,62 +151,25 @@ def populate_items(docname, pos_opening_entry):
         return {"status": "error", "message": str(e)}
 
 
-def handle_pos_closing_submit(doc, method):
-    """
-    Fired when a POS Closing Entry is submitted.
-    Finds or creates the matching ItemDailyTracker for the same
-    POS Opening Entry, populates its items, saves (and submits) it.
-    """
-    pos_opening = doc.pos_opening_entry
-    if not pos_opening:
-        frappe.log_error(f"No POS Opening Entry on Closing Entry {doc.name}", "Item Daily Tracker")
-        return
-
-    # Try to fetch an existing tracker
-    tracker_name = frappe.db.get_value(
-        "Item Daily Tracker",
-        {"pos_opening_entry": pos_opening},
-        "name"
-    )
-
-    if tracker_name:
-        tracker = frappe.get_doc("Item Daily Tracker", tracker_name)
-    else:
-        tracker = frappe.new_doc("Item Daily Tracker")
-        tracker.pos_opening_entry = pos_opening
-
-    # Populate (this will clear and refill .items)
-    tracker.fetch_reconciliation_data()
-
-    # Save or update
-    if tracker.docstatus == 0:
-        tracker.save()
-        # Optionally submit the tracker if you want it to be a submitted doc
-        try:
-            tracker.submit()
-        except frappe.ValidationError:
-            # If your tracker is meant to stay as a Draft, you can skip submission
-            pass
-    else:
-       
-        tracker.save(ignore_permissions=True)
-
 def handle_pos_closing_with_validation(doc, method):
     """
     Handle POS Closing Entry submission with POS Serial Validation processing
     """
     try:
+        frappe.logger().info(f"Starting handle_pos_closing_with_validation for POS Closing: {doc.name}")
+        
         # First, handle POS Serial Validation submissions
         submit_pos_serial_validations(doc)
         
-        # Then call the original handler only if pos_profile != 'waiter'
+        # Then call the item daily tracker handler only if pos_profile != 'waiter'
         if doc.pos_profile and doc.pos_profile.lower() != 'waiter':
-            handle_pos_closing_submit(doc, method)
+            create_and_submit_item_daily_tracker(doc)
         else:
-            frappe.logger().info(f"Skipping handle_pos_closing_submit for waiter profile: {doc.pos_profile}")
+            frappe.logger().info(f"Skipping Item Daily Tracker creation for waiter profile: {doc.pos_profile}")
             
     except Exception as e:
-        frappe.log_error(f"Error in handle_pos_closing_with_validation: {str(e)}")
+        error_msg = f"Error in handle_pos_closing_with_validation: {str(e)}"
+        frappe.log_error(error_msg)
         frappe.throw(_("Error processing POS closing: {0}").format(str(e)))
 
 def submit_pos_serial_validations(pos_closing_doc):
@@ -221,6 +184,8 @@ def submit_pos_serial_validations(pos_closing_doc):
             frappe.logger().info("No POS Opening Entry found in closing document")
             return
             
+        frappe.logger().info(f"Processing POS Serial Validations for opening entry: {pos_opening_entry}")
+            
         # Find all draft POS Serial Validation documents for this opening entry
         pos_validations = frappe.get_all(
             'POS Serial Validation',
@@ -230,6 +195,8 @@ def submit_pos_serial_validations(pos_closing_doc):
             },
             fields=['name']
         )
+        
+        frappe.logger().info(f"Found {len(pos_validations)} draft POS Serial Validation documents")
         
         submitted_count = 0
         
@@ -242,6 +209,7 @@ def submit_pos_serial_validations(pos_closing_doc):
                 if not pos_validation_doc.serial_numbers:
                     frappe.logger().info(f"Skipping POS Serial Validation {validation.name} - no serial numbers")
                     continue
+                    
                 # Submit the document
                 pos_validation_doc.save()
                 pos_validation_doc.submit()
@@ -257,6 +225,7 @@ def submit_pos_serial_validations(pos_closing_doc):
         
         if submitted_count > 0:
             frappe.msgprint(_(f"Successfully submitted {submitted_count} POS Serial Validation document(s)"))
+            frappe.logger().info(f"Successfully submitted {submitted_count} POS Serial Validation documents")
         else:
             frappe.logger().info("No POS Serial Validation documents to submit")
             
@@ -265,42 +234,60 @@ def submit_pos_serial_validations(pos_closing_doc):
         frappe.log_error(error_msg)
         frappe.throw(_(error_msg))
 
-def handle_pos_closing_submit(doc, method):
+def create_and_submit_item_daily_tracker(pos_closing_doc):
     """
     Fired when a POS Closing Entry is submitted.
     Finds or creates the matching ItemDailyTracker for the same
-    POS Opening Entry, populates its items, saves (and submits) it.
+    POS Opening Entry, populates its items, saves and submits it.
     """
-    pos_opening = doc.pos_opening_entry
-    if not pos_opening:
-        frappe.log_error(f"No POS Opening Entry on Closing Entry {doc.name}", "Item Daily Tracker")
-        return
+    try:
+        pos_opening = pos_closing_doc.pos_opening_entry
+        if not pos_opening:
+            frappe.log_error(f"No POS Opening Entry on Closing Entry {pos_closing_doc.name}", "Item Daily Tracker")
+            return
 
-    # Try to fetch an existing tracker
-    tracker_name = frappe.db.get_value(
-        "Item Daily Tracker",
-        {"pos_opening_entry": pos_opening},
-        "name"
-    )
+        frappe.logger().info(f"Processing Item Daily Tracker for opening entry: {pos_opening}")
 
-    if tracker_name:
-        tracker = frappe.get_doc("Item Daily Tracker", tracker_name)
-    else:
-        tracker = frappe.new_doc("Item Daily Tracker")
-        tracker.pos_opening_entry = pos_opening
+        # Try to fetch an existing tracker
+        tracker_name = frappe.db.get_value(
+            "Item Daily Tracker",
+            {"pos_opening_entry": pos_opening},
+            "name"
+        )
 
-    # Populate (this will clear and refill .items)
-    tracker.fetch_reconciliation_data()
+        if tracker_name:
+            frappe.logger().info(f"Found existing Item Daily Tracker: {tracker_name}")
+            tracker = frappe.get_doc("Item Daily Tracker", tracker_name)
+        else:
+            frappe.logger().info("Creating new Item Daily Tracker")
+            tracker = frappe.new_doc("Item Daily Tracker")
+            tracker.pos_opening_entry = pos_opening
 
-    # Save or update
-    if tracker.docstatus == 0:
-        tracker.save()
-        # Optionally submit the tracker if you want it to be a submitted doc
-        try:
-            tracker.submit()
-        except frappe.ValidationError:
-            # If your tracker is meant to stay as a Draft, you can skip submission
-            pass
-    else:
-       
-        tracker.save(ignore_permissions=True)
+        # Populate (this will clear and refill .items)
+        tracker.fetch_reconciliation_data()
+
+        # Save or update
+        if tracker.docstatus == 0:
+            tracker.save()
+            frappe.logger().info(f"Saved Item Daily Tracker: {tracker.name}")
+            
+            # Submit the tracker
+            try:
+                tracker.submit()
+                frappe.logger().info(f"Successfully submitted Item Daily Tracker: {tracker.name}")
+                frappe.msgprint(_(f"Item Daily Tracker {tracker.name} created and submitted successfully"))
+                
+            except Exception as submit_error:
+                frappe.log_error(f"Failed to submit Item Daily Tracker {tracker.name}: {str(submit_error)}")
+                frappe.msgprint(_(f"Item Daily Tracker {tracker.name} created but could not be submitted: {str(submit_error)}"))
+                
+        else:
+            # Document is already submitted, just update it
+            tracker.save(ignore_permissions=True)
+            frappe.logger().info(f"Updated existing submitted Item Daily Tracker: {tracker.name}")
+            frappe.msgprint(_(f"Item Daily Tracker {tracker.name} updated successfully"))
+            
+    except Exception as e:
+        error_msg = f"Error in create_and_submit_item_daily_tracker: {str(e)}"
+        frappe.log_error(error_msg)
+        frappe.throw(_(error_msg))
