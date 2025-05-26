@@ -85,86 +85,81 @@ class BarcodeGenerator:
         image.save(buffer, format="PNG")
         return base64.b64encode(buffer.getvalue()).decode()
 
-    def print_barcode_for_serial_no(serial_no):
-    """Generate a PDF with a single barcode for a serial number"""
-      try:
-        # Get the serial number details
-        serial = frappe.get_last_doc("Tenacity Serial No", filters={"serial_no": serial_no})
-        generator = BarcodeGenerator()
+    def save_or_get_barcode_image(self, serial_no):
+        """Create a barcode image and save it to the file system, or retrieve existing one"""
+        logger.info(f"Processing barcode wonderful for serial_no: {serial_no}")
+        try:
+            # Check if barcode already exists for this serial number
+            existing_files = frappe.get_all(
+                "File",
+                filters={
+                    "attached_to_doctype": "Tenacity Serial No",
+                    "attached_to_name": serial_no,
+                    "file_name": f"barcodes/{serial_no}.png"
+                },
+                fields=["name", "file_url"]
+            )
 
-        # Generate or get existing barcode
-        barcode_url = generator.save_or_get_barcode_image(serial_no)
-        if not barcode_url:
+            if existing_files:
+                logger.info(f"Existing barcode found for {serial_no}")
+                return existing_files[0].file_url
+
+            # Generate new barcode image
+            logger.info(f"Generating new barcode for {serial_no}")
+            barcode_image = self.create_barcode_image(serial_no)
+
+            if not barcode_image:
+                logger.error(f"Failed to generate barcode for {serial_no}")
+                return None
+
+            # Define file path and name
+            file_url = f"/files/barcodes/{serial_no}.png"
+            file_name = f"{serial_no}.png"
+
+            # Ensure the barcode folder exists
+            barcode_folder = frappe.get_site_path('public', 'files', 'barcodes')
+            if not os.path.exists(barcode_folder):
+                os.makedirs(barcode_folder)
+                logger.info(f"Created barcode folder: {barcode_folder}")
+
+            # Save the barcode image
+            try:
+                barcode_image.save(os.path.join(barcode_folder, file_name))
+                logger.info(f"Saved barcode image to {file_url}")
+            except Exception as e:
+                logger.error(f"Error saving barcode image for {serial_no}: {str(e)}")
+                return None
+
+            # Create a File document in ERPNext
+            try:
+                file_doc = frappe.get_doc({
+                    "doctype": "File",
+                    "file_name": file_name,
+                    "file_url": file_url,
+                    "attached_to_doctype": "Tenacity Serial No",
+                    "attached_to_name": serial_no
+                })
+                file_doc.insert(ignore_permissions=True)
+                logger.info(f"Created File document for {serial_no}")
+            except Exception as e:
+                logger.error(f"Error creating File document for {serial_no}: {str(e)}")
+                return None
+
+            # Update Serial No with barcode image reference (if custom field exists)
+            try:
+                serial_doc = frappe.get_doc("Tenacity Serial No", serial_no)
+                if hasattr(serial_doc, 'custom_barcode_image'):
+                    serial_doc.custom_barcode_image = file_url
+                    serial_doc.save(ignore_permissions=True)
+                    logger.info(f"Updated Serial No {serial_no} with barcode image")
+            except Exception as e:
+                logger.error(f"Error updating Serial No {serial_no}: {str(e)}")
+
+            return file_url
+
+        except Exception as e:
+            logger.error(f"Error in save_or_get_barcode_image for {serial_no}: {str(e)}")
             return None
-
-        # Create a PDF document
-        pdf = FPDF(orientation='P', unit='mm', format='A4')
-        pdf.add_page()
-
-        # Define constants
-        label_width = 100
-        label_height = 50
-        margin_x = (210 - label_width) / 2  # Center horizontally
-        margin_y = 20
-
-        # Get company logo for branding
-        company = frappe.get_value("Tenacity Serial No", {"serial_no": serial_no}, "company")
-        company_logo = frappe.get_value("Company", company, "company_logo") if company else None
-        logo_path = None
-
-        if company_logo:
-            logo_path = frappe.get_site_path('public', company_logo.lstrip('/'))
-
-        # Draw label border
-        pdf.rect(margin_x, margin_y, label_width, label_height)
-
-        # Add company logo if available
-        if logo_path and os.path.exists(logo_path):
-            pdf.image(logo_path, margin_x + 5, margin_y + 5, w=15)
-            start_y = margin_y + 15
-        else:
-            start_y = margin_y + 5
-
-        # Add serial number
-        pdf.set_xy(margin_x + 5, start_y)
-        pdf.set_font("Arial", size=8)
-        pdf.cell(0, 5, f"{serial_no}")
-
-        # Add item code
-        pdf.set_xy(margin_x + 5, start_y + 7)
-        pdf.set_font("Arial", size=8)
-        pdf.cell(0, 5, f"Item: {serial.item_code}")
-
-        # Add barcode image
-        barcode_path = frappe.get_site_path('public', barcode_url.lstrip('/'))
-        if os.path.exists(barcode_path):
-            pdf.image(barcode_path, margin_x + 25, start_y + 12, w=50)
-
-        # Save the PDF
-        pdf_folder = frappe.get_site_path('public', 'files', 'barcode_prints')
-        if not os.path.exists(pdf_folder):
-            os.makedirs(pdf_folder)
-
-        file_path = os.path.join(pdf_folder, f"{serial_no}_barcode.pdf")
-        pdf.output(file_path)
-
-        # Create File document
-        file_url = f"/files/barcode_prints/{serial_no}_barcode.pdf"
-        file_doc = frappe.get_doc({
-            "doctype": "File",
-            "file_name": f"{serial_no}_barcode.pdf",
-            "file_url": file_url,
-            "attached_to_doctype": "Tenacity Serial No",
-            "attached_to_field": "serial_no",
-            "attached_to_name": serial_no
-        })
-        file_doc.insert(ignore_permissions=True)
-
-        return file_url
-
-      except Exception as e:
-        frappe.log_error(f"Error printing barcode: {str(e)}", "Barcode Generator")
-        return None
 
 def generate_barcodes_for_stock_entry(stock_entry_name):
     frappe.log_error(f"Starting barcode generation for: {stock_entry_name}", "Barcode Generator")
