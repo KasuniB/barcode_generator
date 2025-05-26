@@ -256,6 +256,21 @@ def generate_barcodes_for_stock_entry(stock_entry_name):
 def print_barcodes_for_stock_entry(stock_entry_name):
     """Generate a PDF with one barcode per page for a stock entry, compatible with label printers"""
     try:
+        # Check if PDF already exists for this stock entry
+        existing_files = frappe.get_all(
+            "File",
+            filters={
+                "attached_to_doctype": "Purchase Receipt",
+                "attached_to_name": stock_entry_name,
+                "file_name": f"{stock_entry_name}_barcodes.pdf"
+            },
+            fields=["name", "file_url"]
+        )
+
+        if existing_files:
+            frappe.log_error(f"Existing barcode PDF found for {stock_entry_name}: {existing_files[0].file_url}", "Barcode Generator")
+            return existing_files[0].file_url
+        
         # First, ensure barcodes are generated
         barcodes = generate_barcodes_for_stock_entry(stock_entry_name)
         
@@ -296,11 +311,6 @@ def print_barcodes_for_stock_entry(stock_entry_name):
             else:
                 text_start_y = margin_y
             
-            # Add serial number (left side, without "S/N")
-            """pdf.set_xy(margin_x, text_start_y)
-            pdf.set_font("Arial", size=8)
-            pdf.cell(0, 5, f"{barcode['serial_no']}")"""
-            
             # Add item code (below serial number)
             pdf.set_xy(margin_x + 1, text_start_y + 5)
             pdf.set_font("Arial", style="B", size=15)
@@ -339,6 +349,7 @@ def print_barcodes_for_stock_entry(stock_entry_name):
         })
         file_doc.insert(ignore_permissions=True)
         
+        frappe.log_error(f"Generated new barcode PDF for {stock_entry_name}: {file_url}", "Barcode Generator")
         return file_url
     
     except Exception as e:
