@@ -174,54 +174,54 @@ frappe.ui.form.on('POS Serial Validation', {
     
     // Function to update serial number statuses on submission
     update_serial_statuses: function(frm) {
-        return new Promise((resolve, reject) => {
-            const serial_updates = [];
-            
-            frm.doc.serial_numbers.forEach(row => {
-                if(row.qty === 1) {
-                    // Change from Active to Delivered
-                    serial_updates.push({
-                        serial_no: row.serial_no,
-                        status: 'Delivered'
-                    });
-                } else if(row.qty === -1) {
-                    // Change from Delivered to Active (return)
-                    serial_updates.push({
-                        serial_no: row.serial_no,
-                        status: 'Active'
-                    });
-                }
-            });
-            
-            if(serial_updates.length === 0) {
-                resolve();
-                return;
+    return new Promise((resolve, reject) => {
+        const serial_updates = [];
+        
+        frm.doc.serial_numbers.forEach(row => {
+            if(row.qty === 1) {
+                // Change from Active to Consumed for sales
+                serial_updates.push({
+                    serial_no: row.serial_no,
+                    status: 'Consumed'
+                });
+            } else if(row.qty === -1) {
+                // Change from Consumed (or Delivered) to Active for returns
+                serial_updates.push({
+                    serial_no: row.serial_no,
+                    status: 'Active'
+                });
             }
-            
-            // Call server method to update serial statuses
-            frappe.call({
-                method: 'frappe.client.bulk_update',
-                args: {
-                    docs: serial_updates.map(update => ({
-                        doctype: 'Tenacity Serial No',
-                        name: update.serial_no,
-                        status: update.status
-                    }))
-                },
-                callback: function(r) {
-                    if(r.message) {
-                        console.log('Serial number statuses updated successfully');
-                        resolve();
-                    } else {
-                        reject(new Error('Failed to update serial statuses'));
-                    }
-                },
-                error: function(err) {
-                    reject(err);
-                }
-            });
         });
-    },
+        
+        if(serial_updates.length === 0) {
+            resolve();
+            return;
+        }
+        
+        // Call server method to update serial statuses
+        frappe.call({
+            method: 'frappe.client.bulk_update',
+            args: {
+                docs: serial_updates.map(update => ({
+                    doctype: 'Tenacity Serial No',
+                    name: update.serial_no,
+                    status: update.status
+                }))
+            },
+            callback: function(r) {
+                if(r.message) {
+                    console.log('Serial number statuses updated successfully');
+                    resolve();
+                } else {
+                    reject(new Error('Failed to update serial statuses'));
+                }
+            },
+            error: function(err) {
+                reject(err);
+            }
+        });
+    });
+},
     
     bind_events: function(frm) {
         console.log("Binding barcode scanning events");
