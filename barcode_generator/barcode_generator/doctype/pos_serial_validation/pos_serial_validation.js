@@ -175,25 +175,38 @@ frappe.ui.form.on('POS Serial Validation', {
     // Function to update serial number statuses on submission
     update_serial_statuses: function(frm) {
     return new Promise((resolve, reject) => {
+        console.log('Debug: Starting update_serial_statuses for POS Serial Validation:', frm.doc.name);
+        console.log('Debug: Serial numbers in child table:', JSON.stringify(frm.doc.serial_numbers || []));
+
         const serial_updates = [];
         
         frm.doc.serial_numbers.forEach(row => {
-            if(row.qty === 1) {
+            console.log('Debug: Processing row:', JSON.stringify(row));
+            if (row.qty === 1) {
                 // Change from Active to Consumed for sales
                 serial_updates.push({
                     serial_no: row.serial_no,
                     status: 'Consumed'
                 });
-            } else if(row.qty === -1) {
+            } else if (row.qty === -1) {
                 // Change from Consumed (or Delivered) to Active for returns
                 serial_updates.push({
                     serial_no: row.serial_no,
                     status: 'Active'
                 });
+            } else {
+                console.log('Debug: Skipping row with invalid qty:', row.qty);
             }
         });
         
-        if(serial_updates.length === 0) {
+        console.log('Debug: Serial updates prepared:', JSON.stringify(serial_updates));
+        
+        if (serial_updates.length === 0) {
+            console.log('Debug: No serial updates to process');
+            frappe.show_alert({
+                message: __('No serial numbers to update'),
+                indicator: 'orange'
+            });
             resolve();
             return;
         }
@@ -202,21 +215,34 @@ frappe.ui.form.on('POS Serial Validation', {
         frappe.call({
             method: 'frappe.client.bulk_update',
             args: {
-                docs: serial_updates.map(update => ({
-                    doctype: 'Tenacity Serial No',
-                    name: update.serial_no,
-                    status: update.status
-                }))
+                docs: serial_updates.map(update => {
+                    console.log('Debug: Preparing update for serial_no:', update.serial_no, 'with status:', update.status);
+                    return {
+                        doctype: 'Tenacity Serial No',
+                        name: update.serial_no,
+                        status: update.status
+                    };
+                })
             },
             callback: function(r) {
-                if(r.message) {
-                    console.log('Serial number statuses updated successfully');
+                if (r.message) {
+                    console.log('Debug: Serial number statuses updated successfully:', r.message);
+                    frappe.show_alert({
+                        message: __('Serial number statuses updated successfully'),
+                        indicator: 'green'
+                    });
                     resolve();
                 } else {
-                    reject(new Error('Failed to update serial statuses'));
+                    console.error('Debug: No response message from bulk_update');
+                    reject(new Error('Failed to update serial statuses: No response from server'));
                 }
             },
             error: function(err) {
+                console.error('Debug: Error in bulk_update:', err);
+                frappe.show_alert({
+                    message: __('Failed to update serial number statuses: ') + err.message,
+                    indicator: 'red'
+                });
                 reject(err);
             }
         });
