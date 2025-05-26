@@ -61,8 +61,19 @@ class TenacitySerialGenerator:
         created_serials = []
         
         try:
+            # Debug: Check if item exists first
+            if not frappe.db.exists("Item", item_code):
+                logger.error(f"Item {item_code} does not exist in the database")
+                return []
+            
             # Get item details first
             item_doc = frappe.get_doc("Item", item_code)
+            logger.info(f"Processing item: {item_code}, item_name: {item_doc.item_name}")
+            
+            # Debug: Check if Tenacity Serial No doctype exists
+            if not frappe.db.exists("DocType", "Tenacity Serial No"):
+                logger.error("DocType 'Tenacity Serial No' does not exist")
+                return []
             
             for i in range(qty):
                 # Generate serial number
@@ -71,34 +82,161 @@ class TenacitySerialGenerator:
                     logger.error(f"Failed to generate serial number for {item_code}")
                     continue
                 
+                logger.info(f"Generated serial number: {serial_no}")
+                
                 # Create Tenacity Serial No document
                 try:
-                    serial_doc = frappe.get_doc({
+                    # Debug: Log the document data being created
+                    doc_data = {
                         "doctype": "Tenacity Serial No",
                         "item_code": item_code,
                         "item_name": item_doc.item_name,
                         "purchase_document_no": purchase_receipt,
                         "status": "Active"  # Status options: Active, Consumed
-                    })
+                    }
+                    logger.info(f"Creating document with data: {doc_data}")
+                    
+                    serial_doc = frappe.get_doc(doc_data)
                     
                     # Set the name manually
                     serial_doc.name = serial_no
+                    
+                    # Debug: Check permissions and validation
+                    logger.info(f"Attempting to insert document with name: {serial_no}")
+                    
+                    # Try to insert with more detailed error handling
                     serial_doc.insert(ignore_permissions=True)
+                    
+                    # Commit the transaction
+                    frappe.db.commit()
+                    
                     created_serials.append(serial_no)
-                    logger.info(f"Created Tenacity Serial No: {serial_no}")
+                    logger.info(f"Successfully created Tenacity Serial No: {serial_no}")
                     
                 except frappe.DuplicateEntryError:
                     logger.warning(f"Serial number {serial_no} already exists, skipping")
                     continue
+                except frappe.ValidationError as ve:
+                    logger.error(f"Validation error creating serial doc {serial_no}: {str(ve)}")
+                    continue
+                except frappe.PermissionError as pe:
+                    logger.error(f"Permission error creating serial doc {serial_no}: {str(pe)}")
+                    continue
                 except Exception as e:
-                    logger.error(f"Error creating serial doc {serial_no}: {str(e)}")
+                    logger.error(f"Unexpected error creating serial doc {serial_no}: {str(e)}")
+                    logger.error(f"Error type: {type(e).__name__}")
+                    # Log the full traceback for debugging
+                    import traceback
+                    logger.error(f"Full traceback: {traceback.format_exc()}")
                     continue
                 
         except Exception as e:
             logger.error(f"Error creating Tenacity Serial No for {item_code}: {str(e)}")
+            logger.error(f"Error type: {type(e).__name__}")
+            import traceback
+            logger.error(f"Full traceback: {traceback.format_exc()}")
             frappe.log_error(f"Error creating Tenacity Serial No for {item_code}: {str(e)}", "Tenacity Serial Generator")
             
+        logger.info(f"Total serials created: {len(created_serials)}")
         return created_serials
+
+    # Alternative method without setting name manually
+    def create_tenacity_serial_no_auto_name(self, item_code, purchase_receipt=None, qty=1):
+        """Create Tenacity Serial No documents with auto-generated names"""
+        created_serials = []
+        
+        try:
+            # Check if item exists first
+            if not frappe.db.exists("Item", item_code):
+                logger.error(f"Item {item_code} does not exist in the database")
+                return []
+            
+            # Get item details
+            item_doc = frappe.get_doc("Item", item_code)
+            
+            for i in range(qty):
+                try:
+                    # Create document without setting name manually
+                    serial_doc = frappe.get_doc({
+                        "doctype": "Tenacity Serial No",
+                        "item_code": item_code,
+                        "item_name": item_doc.item_name,
+                        "purchase_document_no": purchase_receipt,
+                        "status": "Active"
+                    })
+                    
+                    # Let Frappe auto-generate the name
+                    serial_doc.insert(ignore_permissions=True)
+                    frappe.db.commit()
+                    
+                    created_serials.append(serial_doc.name)
+                    logger.info(f"Created Tenacity Serial No with auto name: {serial_doc.name}")
+                    
+                except Exception as e:
+                    logger.error(f"Error creating serial doc (auto-name): {str(e)}")
+                    continue
+                    
+        except Exception as e:
+            logger.error(f"Error in create_tenacity_serial_no_auto_name: {str(e)}")
+            
+        return created_serials
+
+    # Debug method to check doctype structure
+    def debug_doctype_structure(self):
+        """Debug method to check the Tenacity Serial No doctype structure"""
+        try:
+            # Check if doctype exists
+            if not frappe.db.exists("DocType", "Tenacity Serial No"):
+                logger.error("DocType 'Tenacity Serial No' does not exist")
+                return False
+            
+            # Get doctype structure
+            doctype = frappe.get_doc("DocType", "Tenacity Serial No")
+            logger.info(f"DocType found: {doctype.name}")
+            logger.info(f"Is custom: {doctype.custom}")
+            logger.info(f"Naming rule: {doctype.naming_rule if hasattr(doctype, 'naming_rule') else 'Not set'}")
+            logger.info(f"Autoname: {doctype.autoname if hasattr(doctype, 'autoname') else 'Not set'}")
+            
+            # List all fields
+            logger.info("Fields in Tenacity Serial No:")
+            for field in doctype.fields:
+                logger.info(f"  - {field.fieldname}: {field.fieldtype} (Required: {field.reqd})")
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error checking doctype structure: {str(e)}")
+            return False
+
+    # Method to test database connectivity and permissions
+    def test_database_operations(self, item_code):
+        """Test basic database operations"""
+        try:
+            # Test 1: Check if we can read from Item doctype
+            logger.info("Test 1: Reading Item doctype")
+            if frappe.db.exists("Item", item_code):
+                item = frappe.get_doc("Item", item_code)
+                logger.info(f"Successfully read item: {item.name}")
+            else:
+                logger.error(f"Item {item_code} not found")
+                return False
+            
+            # Test 2: Check if we can read from Tenacity Serial No
+            logger.info("Test 2: Reading Tenacity Serial No doctype")
+            existing_serials = frappe.get_all("Tenacity Serial No", limit=1)
+            logger.info(f"Found {len(existing_serials)} existing serial numbers")
+            
+            # Test 3: Check permissions
+            logger.info("Test 3: Checking permissions")
+            can_create = frappe.has_permission("Tenacity Serial No", "create")
+            can_write = frappe.has_permission("Tenacity Serial No", "write")
+            logger.info(f"Can create: {can_create}, Can write: {can_write}")
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Database test failed: {str(e)}")
+            return False
 
     def create_barcode_image(self, serial_no):
         """Generate a QR code image for the given serial number"""
@@ -189,6 +327,43 @@ class TenacitySerialGenerator:
             logger.error(f"Error in save_or_get_barcode_image for {serial_no}: {str(e)}")
             return None
 
+# Debugging functions
+def debug_tenacity_serial_creation(item_code):
+    """Debug function to test serial creation"""
+    generator = TenacitySerialGenerator()
+    
+    logger.info("=== DEBUGGING TENACITY SERIAL CREATION ===")
+    
+    # Test 1: Check doctype structure
+    logger.info("Step 1: Checking doctype structure")
+    generator.debug_doctype_structure()
+    
+    # Test 2: Test database operations
+    logger.info("Step 2: Testing database operations")
+    generator.test_database_operations(item_code)
+    
+    # Test 3: Try to generate serial number
+    logger.info("Step 3: Generating serial number")
+    serial_no = generator.generate_serial_number(item_code)
+    logger.info(f"Generated serial: {serial_no}")
+    
+    # Test 4: Try to create with auto-naming
+    logger.info("Step 4: Trying auto-naming approach")
+    auto_serials = generator.create_tenacity_serial_no_auto_name(item_code, qty=1)
+    logger.info(f"Auto-named serials: {auto_serials}")
+    
+    # Test 5: Try original method
+    logger.info("Step 5: Trying original method")
+    manual_serials = generator.create_tenacity_serial_no(item_code, qty=1)
+    logger.info(f"Manual serials: {manual_serials}")
+    
+    return {
+        "generated_serial": serial_no,
+        "auto_serials": auto_serials,
+        "manual_serials": manual_serials
+    }
+
+# Rest of the functions remain the same...
 def generate_serials_for_purchase_receipt(purchase_receipt_name):
     """
     Generate Tenacity Serial Numbers for all items in a purchase receipt.
@@ -247,328 +422,3 @@ def generate_serials_for_purchase_receipt(purchase_receipt_name):
         logger.error(error_msg)
         frappe.log_error(error_msg, "Tenacity Serial Generator")
         return []
-
-def generate_barcodes_for_purchase_receipt(purchase_receipt_name):
-    """
-    Generate barcodes for all Tenacity Serial Numbers linked to a purchase receipt.
-    """
-    try:
-        generator = TenacitySerialGenerator()
-        barcode_urls = []
-
-        # Fetch Tenacity Serial Numbers where purchase_document_no matches the purchase receipt name
-        serial_nos = frappe.get_all(
-            "Tenacity Serial No",
-            filters={"purchase_document_no": purchase_receipt_name},
-            fields=["name", "item_code"]
-        )
-
-        # Process each serial number
-        for serial in serial_nos:
-            serial_no = serial.name
-            # Generate or get existing barcode
-            barcode_url = generator.save_or_get_barcode_image(serial_no)
-            if barcode_url:
-                barcode_urls.append({
-                    "serial_no": serial_no,
-                    "item_code": serial.item_code,
-                    "barcode_url": barcode_url
-                })
-
-        if not barcode_urls:
-            frappe.log_error(f"No serial numbers found for purchase receipt {purchase_receipt_name}", "Tenacity Serial Generator")
-            return []
-
-        frappe.db.commit()
-        return barcode_urls
-
-    except Exception as e:
-        frappe.db.rollback()
-        frappe.log_error(f"Error generating barcodes: {str(e)}", "Tenacity Serial Generator")
-        return []
-
-def print_barcodes_for_purchase_receipt(purchase_receipt_name):
-    """Generate a PDF with one barcode per page for a purchase receipt, compatible with label printers"""
-    try:
-        # First, ensure barcodes are generated
-        barcodes = generate_barcodes_for_purchase_receipt(purchase_receipt_name)
-        
-        if not barcodes:
-            frappe.log_error(f"No serial numbers found for purchase receipt {purchase_receipt_name}", "Tenacity Serial Generator")
-            return None
-        
-        # Create a PDF document - Use custom dimensions for label printer (100mm x 50mm)
-        pdf = FPDF(orientation='L', unit='mm', format=(50, 100))
-        
-        # Get company logo for branding
-        company = frappe.get_value("Purchase Receipt", purchase_receipt_name, "company")
-        company_logo = frappe.get_value("Company", company, "company_logo") if company else None
-        logo_path = None
-        
-        if company_logo:
-            logo_path = frappe.get_site_path('public', company_logo.lstrip('/'))
-            if not os.path.exists(logo_path):
-                logo_path = None
-        
-        # Create each barcode on its own page
-        for barcode in barcodes:
-            # Add a new page for each barcode
-            pdf.add_page()
-            
-            # Set margins
-            margin_x = 3
-            margin_y = 5
-            text_width = 40
-            qr_width = 57
-            
-            # Add company logo if available (in the top-left)
-            if logo_path and os.path.exists(logo_path):
-                pdf.image(logo_path, margin_x, margin_y, w=15)
-                text_start_y = margin_y + 15
-            else:
-                text_start_y = margin_y
-            
-            # Add item code
-            pdf.set_xy(margin_x + 1, text_start_y + 5)
-            pdf.set_font("Arial", style="B", size=15)
-            pdf.cell(0, 5, f" Item: {barcode['item_code']}")
-
-            # Add item name
-            item_name = frappe.get_value("Item", barcode['item_code'], "item_name") or barcode['item_code']
-            pdf.set_xy(margin_x + 1, text_start_y + 11)
-            pdf.set_font("Arial", style="B", size=18)
-            pdf.multi_cell(w=35, h=4, txt=f"{item_name}", align='L')
-            
-            # Add serial number at the bottom
-            pdf.set_xy(margin_x + 1, text_start_y + 35)
-            pdf.set_font("Arial", size=8)
-            pdf.cell(0, 5, f"S/N: {barcode['serial_no']}")
-    
-            # Add QR code image (right side, larger size)
-            barcode_path = frappe.get_site_path('public', barcode['barcode_url'].lstrip('/'))
-            if os.path.exists(barcode_path):
-                # Position QR code on the right, centered vertically
-                qr_x = margin_x + text_width
-                qr_y = margin_y
-                qr_size = 40  # 40mm to fit height minus margins
-                pdf.image(barcode_path, qr_x, qr_y, w=qr_size, h=qr_size)
-        
-        # Save the PDF
-        pdf_folder = frappe.get_site_path('public', 'files', 'tenacity_barcode_prints')
-        if not os.path.exists(pdf_folder):
-            os.makedirs(pdf_folder)
-        
-        file_path = os.path.join(pdf_folder, f"{purchase_receipt_name}_tenacity_barcodes.pdf")
-        pdf.output(file_path)
-        
-        # Create File document
-        file_url = f"/files/tenacity_barcode_prints/{purchase_receipt_name}_tenacity_barcodes.pdf"
-        file_doc = frappe.get_doc({
-            "doctype": "File",
-            "file_name": f"{purchase_receipt_name}_tenacity_barcodes.pdf",
-            "file_url": file_url,
-            "attached_to_doctype": "Purchase Receipt",
-            "attached_to_name": purchase_receipt_name
-        })
-        file_doc.insert(ignore_permissions=True)
-        
-        return file_url
-    
-    except Exception as e:
-        frappe.log_error(f"Error generating barcode PDF: {str(e)}", "Tenacity Serial Generator")
-        return None
-
-def print_barcode_for_tenacity_serial(serial_no):
-    """Generate a PDF with a single barcode for a Tenacity Serial Number"""
-    try:
-        # Get the serial number details
-        serial = frappe.get_doc("Tenacity Serial No", serial_no)
-        generator = TenacitySerialGenerator()
-
-        # Generate or get existing barcode
-        barcode_url = generator.save_or_get_barcode_image(serial_no)
-        if not barcode_url:
-            return None
-
-        # Create a PDF document
-        pdf = FPDF(orientation='P', unit='mm', format='A4')
-        pdf.add_page()
-
-        # Define constants
-        label_width = 100
-        label_height = 50
-        margin_x = (210 - label_width) / 2  # Center horizontally
-        margin_y = 20
-
-        # Get company logo for branding
-        company = frappe.get_value("Tenacity Serial No", serial_no, "company")
-        company_logo = frappe.get_value("Company", company, "company_logo") if company else None
-        logo_path = None
-
-        if company_logo:
-            logo_path = frappe.get_site_path('public', company_logo.lstrip('/'))
-
-        # Draw label border
-        pdf.rect(margin_x, margin_y, label_width, label_height)
-
-        # Add company logo if available
-        if logo_path and os.path.exists(logo_path):
-            pdf.image(logo_path, margin_x + 5, margin_y + 5, w=15)
-            start_y = margin_y + 15
-        else:
-            start_y = margin_y + 5
-
-        # Add serial number
-        pdf.set_xy(margin_x + 5, start_y)
-        pdf.set_font("Arial", size=8)
-        pdf.cell(0, 5, f"S/N: {serial_no}")
-
-        # Add item code
-        pdf.set_xy(margin_x + 5, start_y + 7)
-        pdf.set_font("Arial", size=8)
-        pdf.cell(0, 5, f"Item: {serial.item_code}")
-
-        # Add barcode image
-        barcode_path = frappe.get_site_path('public', barcode_url.lstrip('/'))
-        if os.path.exists(barcode_path):
-            pdf.image(barcode_path, margin_x + 25, start_y + 12, w=50)
-
-        # Save the PDF
-        pdf_folder = frappe.get_site_path('public', 'files', 'tenacity_barcode_prints')
-        if not os.path.exists(pdf_folder):
-            os.makedirs(pdf_folder)
-
-        file_path = os.path.join(pdf_folder, f"{serial_no}_barcode.pdf")
-        pdf.output(file_path)
-
-        # Create File document
-        file_url = f"/files/tenacity_barcode_prints/{serial_no}_barcode.pdf"
-        file_doc = frappe.get_doc({
-            "doctype": "File",
-            "file_name": f"{serial_no}_barcode.pdf",
-            "file_url": file_url,
-            "attached_to_doctype": "Tenacity Serial No",
-            "attached_to_name": serial_no
-        })
-        file_doc.insert(ignore_permissions=True)
-
-        return file_url
-
-    except Exception as e:
-        frappe.log_error(f"Error printing barcode: {str(e)}", "Tenacity Serial Generator")
-        return None
-
-def update_serial_status(serial_no, status):
-    """Update the status of a Tenacity Serial Number"""
-    try:
-        if status not in ["Active", "Consumed"]:
-            frappe.throw(f"Invalid status. Must be 'Active' or 'Consumed', got '{status}'")
-        
-        serial_doc = frappe.get_doc("Tenacity Serial No", serial_no)
-        serial_doc.status = status
-        serial_doc.save(ignore_permissions=True)
-        frappe.db.commit()
-        
-        return True
-        
-    except Exception as e:
-        logger.error(f"Error updating status for {serial_no}: {str(e)}")
-        return False
-
-def consume_serial_number(serial_no):
-    """Mark a serial number as consumed"""
-    return update_serial_status(serial_no, "Consumed")
-
-def activate_serial_number(serial_no):
-    """Mark a serial number as active"""
-    return update_serial_status(serial_no, "Active")
-
-def get_serials_by_status(status=None, item_code=None, purchase_receipt=None):
-    """Get serial numbers filtered by status and other criteria"""
-    try:
-        filters = {}
-        
-        if status and status in ["Active", "Consumed"]:
-            filters["status"] = status
-        
-        if item_code:
-            filters["item_code"] = item_code
-            
-        if purchase_receipt:
-            filters["purchase_document_no"] = purchase_receipt
-        
-        serials = frappe.get_all(
-            "Tenacity Serial No",
-            filters=filters,
-            fields=["name", "item_code", "status", "purchase_document_no", "creation"],
-            order_by="creation desc"
-        )
-        
-        return serials
-        
-    except Exception as e:
-        logger.error(f"Error fetching serials by status: {str(e)}")
-        return []
-
-def get_available_serials_for_item(item_code, limit=None):
-    """Get active (available) serial numbers for a specific item"""
-    try:
-        filters = {
-            "item_code": item_code,
-            "status": "Active"
-        }
-        
-        serials = frappe.get_all(
-            "Tenacity Serial No",
-            filters=filters,
-            fields=["name", "creation"],
-            order_by="creation asc",
-            limit=limit
-        )
-        
-        return [serial.name for serial in serials]
-        
-    except Exception as e:
-        logger.error(f"Error fetching available serials for {item_code}: {str(e)}")
-        return []
-
-def consume_serials_for_delivery(item_code, qty):
-    """Consume the oldest active serial numbers for delivery/issue"""
-    try:
-        # Get the oldest active serials for this item
-        available_serials = get_available_serials_for_item(item_code, limit=qty)
-        
-        if len(available_serials) < qty:
-            frappe.throw(f"Only {len(available_serials)} active serial numbers available for item {item_code}, but {qty} requested")
-        
-        consumed_serials = []
-        for serial_no in available_serials[:qty]:
-            if consume_serial_number(serial_no):
-                consumed_serials.append(serial_no)
-        
-        return consumed_serials
-        
-    except Exception as e:
-        logger.error(f"Error consuming serials for delivery: {str(e)}")
-        return []
-
-# Convenience function to generate both serials and barcodes
-def process_purchase_receipt(purchase_receipt_name):
-    """Generate serial numbers and barcodes for a purchase receipt"""
-    try:
-        # First generate serial numbers
-        serials = generate_serials_for_purchase_receipt(purchase_receipt_name)
-        
-        if serials:
-            # Then generate barcodes for the created serials
-            barcodes = generate_barcodes_for_purchase_receipt(purchase_receipt_name)
-            return {
-                "serials": serials,
-                "barcodes": barcodes
-            }
-        else:
-            return {"serials": [], "barcodes": []}
-            
-    except Exception as e:
-        frappe.log_error(f"Error processing purchase receipt {purchase_receipt_name}: {str(e)}", "Tenacity Serial Generator")
-        return {"serials": [], "barcodes": []}
