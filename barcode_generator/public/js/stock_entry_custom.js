@@ -9,7 +9,7 @@ frappe.ui.form.on('Purchase Receipt', {
                 });
                 
                 frappe.call({
-                    method: 'your_app_name.barcode_generator.api.print_barcodes_for_stock_entry',
+                    method: 'barcode_generator.utils.api.print_barcodes_for_stock_entry',
                     args: {
                         'stock_entry_name': frm.doc.name
                     },
@@ -46,7 +46,7 @@ frappe.ui.form.on('Purchase Receipt', {
                 });
                 
                 frappe.call({
-                    method: 'your_app_name.barcode_generator.api.generate_serials_for_purchase_receipt',
+                    method: 'barcode_generator.utils.api.generate_serials_for_purchase_receipt',
                     args: {
                         'purchase_receipt_name': frm.doc.name
                     },
