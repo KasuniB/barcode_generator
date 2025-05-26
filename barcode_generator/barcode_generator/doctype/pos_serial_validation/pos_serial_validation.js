@@ -203,7 +203,7 @@ frappe.ui.form.on('POS Serial Validation', {
                 method: 'frappe.client.bulk_update',
                 args: {
                     docs: serial_updates.map(update => ({
-                        doctype: 'Serial No',
+                        doctype: 'Tenacity Serial No',
                         name: update.serial_no,
                         status: update.status
                     }))
@@ -358,7 +358,7 @@ frappe.ui.form.on('POS Serial Validation', {
         }
         
         // Get item details and status from the serial number
-        frappe.db.get_value('Serial No', serial_no, ['item_code', 'item_name', 'status'])
+        frappe.db.get_value('Tenacity Serial No', serial_no, ['item_code', 'item_name', 'status'])
             .then(r => {
                 if(r.message) {
                     const {item_code, item_name, status} = r.message;

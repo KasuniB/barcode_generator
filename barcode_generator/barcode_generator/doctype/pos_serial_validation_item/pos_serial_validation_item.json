@@ -17,7 +17,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Serial No",
-   "options": "Serial No",
+   "options": "Tenacity Serial No",
    "reqd": 1,
    "unique": 1
   },
