@@ -169,7 +169,7 @@ def generate_barcodes_for_stock_entry(stock_entry_name):
     """
     try:
         # Get the stock entry
-        stock_entry = frappe.get_doc("Stock Entry", stock_entry_name)
+        stock_entry = frappe.get_doc("Purchase Receipt", stock_entry_name)
         generator = BarcodeGenerator()
         barcode_urls = []
 
@@ -267,7 +267,7 @@ def print_barcodes_for_stock_entry(stock_entry_name):
         pdf = FPDF(orientation='L', unit='mm', format=(50, 100))
         
         # Get company logo for branding
-        company = frappe.get_value("Stock Entry", stock_entry_name, "company")
+        company = frappe.get_value("Purchase Receipt", stock_entry_name, "company")
         company_logo = frappe.get_value("Company", company, "company_logo") if company else None
         logo_path = None
         
@@ -334,7 +334,7 @@ def print_barcodes_for_stock_entry(stock_entry_name):
             "doctype": "File",
             "file_name": f"{stock_entry_name}_barcodes.pdf",
             "file_url": file_url,
-            "attached_to_doctype": "Stock Entry",
+            "attached_to_doctype": "Purchase Receipt",
             "attached_to_name": stock_entry_name
         })
         file_doc.insert(ignore_permissions=True)

@@ -4,7 +4,7 @@ from . import barcode_generator
 @frappe.whitelist()
 def generate_barcodes_for_stock_entry(stock_entry_name):
     """API endpoint to generate barcodes for stock entry"""
-    if not frappe.has_permission("Stock Entry", "write"):
+    if not frappe.has_permission("Purchase Receipt", "write"):
         frappe.throw("Insufficient permissions to generate barcodes")
         
     return barcode_generator.generate_barcodes_for_stock_entry(stock_entry_name)
@@ -12,7 +12,7 @@ def generate_barcodes_for_stock_entry(stock_entry_name):
 @frappe.whitelist()
 def print_barcodes_for_stock_entry(stock_entry_name):
     """API endpoint to print barcodes for stock entry"""
-    if not frappe.has_permission("Stock Entry", "read"):
+    if not frappe.has_permission("Purchase Receipt", "read"):
         frappe.throw("Insufficient permissions to print barcodes")
         
     return barcode_generator.print_barcodes_for_stock_entry(stock_entry_name)

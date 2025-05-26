@@ -95,7 +95,7 @@ doctype_js = {
 # Hook on document methods and events
 
 doc_events = {
-    "Stock Entry": {
+    "Purchase Receipt": {
         "on_submit": "barcode_generator.utils.api.stock_entry_after_submit"
     }
 }
