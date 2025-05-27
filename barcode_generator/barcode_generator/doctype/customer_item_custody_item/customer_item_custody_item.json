@@ -1,0 +1,81 @@
+{
+ "actions": [],
+ "creation": "2024-01-01 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "serial_no",
+  "item_code",
+  "item_name",
+  "column_break_4",
+  "status",
+  "scanned_at",
+  "returned_at"
+ ],
+ "fields": [
+  {
+   "columns": 2,
+   "fieldname": "serial_no",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Serial Number",
+   "reqd": 1
+  },
+  {
+   "columns": 2,
+   "fieldname": "item_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Item Code"
+  },
+  {
+   "columns": 3,
+   "fieldname": "item_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Item Name"
+  },
+  {
+   "fieldname": "column_break_4",
+   "fieldtype": "Column Break"
+  },
+  {
+   "columns": 1,
+   "default": "In Custody",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Status",
+   "options": "In Custody\nReturned",
+   "reqd": 1
+  },
+  {
+   "columns": 2,
+   "fieldname": "scanned_at",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Taken Into Custody At"
+  },
+  {
+   "columns": 2,
+   "fieldname": "returned_at",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Returned At"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2024-01-01 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Barcode Generator",
+ "name": "Customer Item Custody Item",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
