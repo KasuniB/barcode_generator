@@ -4,16 +4,11 @@
 frappe.ui.form.on("POS Closing Entry", {
     onload: function (frm) {
         frm.ignore_doctypes_on_cancel_all = ["POS Invoice Merge Log"];
+        
+        // Remove user-related set_query since user field is removed
         frm.set_query("pos_profile", function (doc) {
             return {
-                filters: { user: doc.user },
-            };
-        });
-
-        frm.set_query("user", function (doc) {
-            return {
-                query: "erpnext.accounts.doctype.pos_closing_entry.pos_closing_entry.get_cashiers",
-                filters: { parent: doc.pos_profile },
+                filters: {}, // Adjust filters if needed (e.g., company, branch)
             };
         });
 
@@ -122,37 +117,25 @@ frappe.ui.form.on("POS Closing Entry", {
     before_save: async function (frm) {
         frappe.dom.freeze(__("Processing Sales! Please Wait..."));
 
+        // Reset totals to avoid accumulation
         frm.set_value("grand_total", 0);
         frm.set_value("net_total", 0);
         frm.set_value("total_quantity", 0);
-        frm.set_value("taxes", []);
 
+        // Update expected_amount based on opening_amount
         for (let row of frm.doc.payment_reconciliation) {
             row.expected_amount = row.opening_amount;
         }
 
-        await Promise.all([
-            frappe.call({
-                method: "erpnext.accounts.doctype.pos_closing_entry.pos_closing_entry.get_pos_invoices",
-                args: {
-                    start: frappe.datetime.get_datetime_as_string(frm.doc.period_start_date),
-                    end: frappe.datetime.get_datetime_as_string(frm.doc.period_end_date),
-                    pos_profile: frm.doc.pos_profile,
-                },
-                callback: (r) => {
-                    let pos_invoices = r.message;
-                    for (let doc of pos_invoices) {
-                        frm.doc.grand_total += flt(doc.grand_total);
-                        frm.doc.net_total += flt(doc.net_total);
-                        frm.doc.total_quantity += flt(doc.total_qty);
-                        refresh_payments(doc, frm, false);
-                        refresh_taxes(doc, frm);
-                        refresh_fields(frm);
-                        set_html_data(frm);
-                    }
-                },
-            }),
-        ]);
+        // No need to call get_pos_invoices again; rely on data from pos_opening_entry
+        // Aggregate totals from existing pos_transactions
+        for (let doc of frm.doc.pos_transactions) {
+            frm.doc.grand_total += flt(doc.grand_total);
+            frm.doc.net_total += flt(doc.net_total);
+            frm.doc.total_quantity += flt(doc.total_quantity);
+        }
+
+        refresh_fields(frm);
         frappe.dom.unfreeze();
     },
 });
@@ -165,6 +148,11 @@ frappe.ui.form.on("POS Closing Entry Detail", {
 });
 
 function set_form_data(data, frm) {
+    // Clear existing data to prevent duplicates
+    frm.set_value("pos_transactions", []);
+    frm.set_value("payment_reconciliation", []);
+    frm.set_value("taxes", []);
+
     data.forEach((d) => {
         add_to_pos_transaction(d, frm);
         frm.doc.grand_total += flt(d.grand_total);
@@ -176,12 +164,15 @@ function set_form_data(data, frm) {
 }
 
 function add_to_pos_transaction(d, frm) {
-    frm.add_child("pos_transactions", {
-        pos_invoice: d.name,
-        posting_date: d.posting_date,
-        grand_total: d.grand_total,
-        customer: d.customer,
-    });
+    // Check if invoice already exists to prevent duplicates
+    if (!frm.doc.pos_transactions.some((t) => t.pos_invoice === d.name)) {
+        frm.add_child("pos_transactions", {
+            pos_invoice: d.name,
+            posting_date: d.posting_date,
+            grand_total: d.grand_total,
+            customer: d.customer,
+        });
+    }
 }
 
 function refresh_payments(d, frm, is_new) {
