@@ -73,11 +73,6 @@ frappe.ui.form.on("POS Closing Entry", {
             frm.doc.period_end_date &&
             frm.doc.pos_profile
         ) {
-            // Check if pos_transactions is already populated to prevent redundant calls
-            if (frm.doc.pos_transactions && frm.doc.pos_transactions.length > 0) {
-                return;
-            }
-
             reset_values(frm);
             frappe.run_serially([
                 () => frappe.dom.freeze(__("Loading Invoices! Please Wait...")),
@@ -122,12 +117,24 @@ frappe.ui.form.on("POS Closing Entry", {
     before_save: async function (frm) {
         frappe.dom.freeze(__("Processing Sales! Please Wait..."));
 
+        // Reset totals to avoid accumulation
+        frm.set_value("grand_total", 0);
+        frm.set_value("net_total", 0);
+        frm.set_value("total_quantity", 0);
+
         // Update expected_amount based on opening_amount
         for (let row of frm.doc.payment_reconciliation) {
             row.expected_amount = row.opening_amount;
         }
 
-        // Rely on set_form_data for totals; no recalculation here
+        // No need to call get_pos_invoices again; rely on data from pos_opening_entry
+        // Aggregate totals from existing pos_transactions
+        //for (let doc of frm.doc.pos_transactions) {
+            //frm.doc.grand_total += flt(doc.grand_total);
+            //frm.doc.net_total += flt(doc.net_total);
+            //frm.doc.total_quantity += flt(doc.total_quantity);
+        //}
+
         refresh_fields(frm);
         frappe.dom.unfreeze();
     },
@@ -142,27 +149,17 @@ frappe.ui.form.on("POS Closing Entry Detail", {
 
 function set_form_data(data, frm) {
     // Clear existing data to prevent duplicates
-    console.log("set_form_data called with data:", data);
     frm.set_value("pos_transactions", []);
     frm.set_value("payment_reconciliation", []);
     frm.set_value("taxes", []);
-    frm.set_value("grand_total", 0);
-    frm.set_value("net_total", 0);
-    frm.set_value("total_quantity", 0);
 
     data.forEach((d) => {
-        console.log("Processing invoice:", d.name, "Grand Total:", d.grand_total);
         add_to_pos_transaction(d, frm);
         frm.doc.grand_total += flt(d.grand_total);
         frm.doc.net_total += flt(d.net_total);
         frm.doc.total_quantity += flt(d.total_qty);
         refresh_payments(d, frm, true);
         refresh_taxes(d, frm);
-    });
-    console.log("Final totals:", {
-        grand_total: frm.doc.grand_total,
-        net_total: frm.doc.net_total,
-        total_quantity: frm.doc.total_quantity
     });
 }
 
