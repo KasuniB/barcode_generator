@@ -73,6 +73,11 @@ frappe.ui.form.on("POS Closing Entry", {
             frm.doc.period_end_date &&
             frm.doc.pos_profile
         ) {
+            // Prevent redundant calls to get_pos_invoices if pos_transactions is already populated
+            if (frm.doc.pos_transactions && frm.doc.pos_transactions.length > 0) {
+                return;
+            }
+
             reset_values(frm);
             frappe.run_serially([
                 () => frappe.dom.freeze(__("Loading Invoices! Please Wait...")),
@@ -127,7 +132,6 @@ frappe.ui.form.on("POS Closing Entry", {
             row.expected_amount = row.opening_amount;
         }
 
-        // Removed redundant total calculations to prevent multiplication
         // Rely on set_form_data for correct totals
         refresh_fields(frm);
         frappe.dom.unfreeze();
