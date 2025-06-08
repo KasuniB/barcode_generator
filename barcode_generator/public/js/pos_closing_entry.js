@@ -127,14 +127,8 @@ frappe.ui.form.on("POS Closing Entry", {
             row.expected_amount = row.opening_amount;
         }
 
-        // No need to call get_pos_invoices again; rely on data from pos_opening_entry
-        // Aggregate totals from existing pos_transactions
-        //for (let doc of frm.doc.pos_transactions) {
-            //frm.doc.grand_total += flt(doc.grand_total);
-            //frm.doc.net_total += flt(doc.net_total);
-            //frm.doc.total_quantity += flt(doc.total_quantity);
-        //}
-
+        // Removed redundant total calculations to prevent multiplication
+        // Rely on set_form_data for correct totals
         refresh_fields(frm);
         frappe.dom.unfreeze();
     },
