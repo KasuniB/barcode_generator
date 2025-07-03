@@ -311,14 +311,10 @@ def print_barcodes_for_stock_entry(stock_entry_name):
             else:
                 text_start_y = margin_y
             
-            # Add item code (below serial number)
-            pdf.set_xy(margin_x + 1, text_start_y + 5)
-            pdf.set_font("Arial", style="B", size=15)
-            pdf.cell(0, 5, f" Item: {barcode['item_code']}")
-
+            # Add only item name (removed item_code display)
             item_name = frappe.get_value("Item", barcode['item_code'], "item_name") or barcode['item_code']
-            pdf.set_xy(margin_x + 1, text_start_y + 11)  # Align with item code x, add 1mm space
-            pdf.set_font("Arial", style="B", size=18)  # Bold, 15pt font
+            pdf.set_xy(margin_x + 1, text_start_y + 5)
+            pdf.set_font("Arial", style="B", size=12)  # Reduced font size from 18 to 12
             pdf.multi_cell(w=35, h=4, txt=f"{item_name}", align='L')            
     
             # Add QR code image (right side, larger size)
