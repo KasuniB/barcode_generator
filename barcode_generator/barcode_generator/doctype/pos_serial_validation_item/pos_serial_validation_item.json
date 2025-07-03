@@ -19,7 +19,7 @@
    "label": "Serial No",
    "options": "Tenacity Serial No",
    "reqd": 1,
-   "unique": 1
+   "unique": 0
   },
   {
    "fetch_from": "serial_no.item_code",
