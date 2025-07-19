@@ -5,7 +5,7 @@ import frappe
 from frappe import _
 from frappe.utils import flt, get_datetime
 
-from posnext.overrides.pos_invoice_merge_log import (
+from posnext.posnext.overrides.pos_invoice_merge_log import (
     consolidate_pos_invoices,
     unconsolidate_pos_invoices,
 )
