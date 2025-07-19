@@ -30,8 +30,7 @@ app_license = "MIT"
 
 # include js in doctype views
 doctype_js = {
-    "Purchase Receipt": "public/js/stock_entry_custom.js",
-	"POS Closing Entry": "public/js/pos_closing_entry.js"		
+    "Purchase Receipt": "public/js/stock_entry_custom.js"	
 }
 
 
