@@ -1,138 +1,135 @@
 # Copyright (c) 2018, Frappe Technologies Pvt. Ltd. and contributors
 # For license information, please see license.txt
 
-
 import frappe
 from frappe import _
 from frappe.utils import flt, get_datetime
 
-from erpnext.accounts.doctype.pos_invoice_merge_log.pos_invoice_merge_log import (
-        consolidate_pos_invoices,
-        unconsolidate_pos_invoices,
+from posnext.overrides.pos_invoice_merge_log import (
+    consolidate_pos_invoices,
+    unconsolidate_pos_invoices,
 )
 from erpnext.controllers.status_updater import StatusUpdater
 
 
 class POSClosingEntry(StatusUpdater):
-        # begin: auto-generated types
-        # This code is auto-generated. Do not modify anything in this block.
+    # begin: auto-generated types
+    # This code is auto-generated. Do not modify anything in this block.
 
-        from typing import TYPE_CHECKING
+    from typing import TYPE_CHECKING
 
-        if TYPE_CHECKING:
-                from erpnext.accounts.doctype.pos_closing_entry_detail.pos_closing_entry_detail import POSClosingEntryDetail
-                from erpnext.accounts.doctype.pos_closing_entry_taxes.pos_closing_entry_taxes import POSClosingEntryTaxes
-                from erpnext.accounts.doctype.pos_invoice_reference.pos_invoice_reference import POSInvoiceReference
-                from frappe.types import DF
+    if TYPE_CHECKING:
+        from erpnext.accounts.doctype.pos_closing_entry_detail.pos_closing_entry_detail import POSClosingEntryDetail
+        from erpnext.accounts.doctype.pos_closing_entry_taxes.pos_closing_entry_taxes import POSClosingEntryTaxes
+        from erpnext.accounts.doctype.pos_invoice_reference.pos_invoice_reference import POSInvoiceReference
+        from frappe.types import DF
 
-                amended_from: DF.Link | None
-                company: DF.Link
-                error_message: DF.SmallText | None
-                grand_total: DF.Currency
-                net_total: DF.Currency
-                payment_reconciliation: DF.Table[POSClosingEntryDetail]
-                period_end_date: DF.Datetime
-                period_start_date: DF.Datetime
-                pos_opening_entry: DF.Link
-                pos_profile: DF.Link
-                pos_transactions: DF.Table[POSInvoiceReference]
-                posting_date: DF.Date
-                posting_time: DF.Time
-                status: DF.Literal["Draft", "Submitted", "Queued", "Failed", "Cancelled"]
-                taxes: DF.Table[POSClosingEntryTaxes]
-                total_quantity: DF.Float
-        # end: auto-generated types
+        amended_from: DF.Link | None
+        company: DF.Link
+        error_message: DF.SmallText | None
+        grand_total: DF.Currency
+        net_total: DF.Currency
+        payment_reconciliation: DF.Table[POSClosingEntryDetail]
+        period_end_date: DF.Datetime
+        period_start_date: DF.Datetime
+        pos_opening_entry: DF.Link
+        pos_profile: DF.Link
+        pos_transactions: DF.Table[POSInvoiceReference]
+        posting_date: DF.Date
+        posting_time: DF.Time
+        status: DF.Literal["Draft", "Submitted", "Queued", "Failed", "Cancelled"]
+        taxes: DF.Table[POSClosingEntryTaxes]
+        total_quantity: DF.Float
+    # end: auto-generated types
 
-        def validate(self):
-            self.posting_date = self.posting_date or frappe.utils.nowdate()
-            self.posting_time = self.posting_time or frappe.utils.nowtime()
+    def validate(self):
+        self.posting_date = self.posting_date or frappe.utils.nowdate()
+        self.posting_time = self.posting_time or frappe.utils.nowtime()
 
-            if frappe.db.get_value("POS Opening Entry", self.pos_opening_entry, "status") != "Open":
-                frappe.throw(_("Selected POS Opening Entry should be open."), title=_("Invalid Opening Entry"))
+        if frappe.db.get_value("POS Opening Entry", self.pos_opening_entry, "status") != "Open":
+            frappe.throw(_("Selected POS Opening Entry should be open."), title=_("Invalid Opening Entry"))
 
-            self.validate_duplicate_pos_invoices()
-            self.validate_pos_invoices()
+        self.validate_duplicate_pos_invoices()
+        self.validate_pos_invoices()
 
-        def validate_duplicate_pos_invoices(self):
-            pos_occurences = {}
-            for idx, inv in enumerate(self.pos_transactions, 1):
-                pos_occurences.setdefault(inv.pos_invoice, []).append(idx)
+    def validate_duplicate_pos_invoices(self):
+        pos_occurences = {}
+        for idx, inv in enumerate(self.pos_transactions, 1):
+            pos_occurences.setdefault(inv.pos_invoice, []).append(idx)
 
+        error_list = []
+        for key, value in pos_occurences.items():
+            if len(value) > 1:
+                error_list.append(
+                    _("{0} is added multiple times on rows: {1}").format(frappe.bold(key), frappe.bold(value))
+                )
+
+        if error_list:
+            frappe.throw(error_list, title=_("Duplicate Sales Invoices found"), as_list=True)
+
+    def validate_pos_invoices(self):
+        invalid_rows = []
+        for d in self.pos_transactions:
+            invalid_row = {"idx": d.idx}
+            sales_invoice = frappe.db.get_values(
+                "Sales Invoice",
+                d.pos_invoice,
+                ["pos_profile", "docstatus"],
+                as_dict=1,
+            )[0]
+            if sales_invoice.pos_profile != self.pos_profile:
+                invalid_row.setdefault("msg", []).append(
+                    _("Sales Profile doesn't match {}").format(frappe.bold(self.pos_profile))
+                )
+            if sales_invoice.docstatus != 1:
+                invalid_row.setdefault("msg", []).append(_("Sales Invoice is not submitted"))
+
+            if invalid_row.get("msg"):
+                invalid_rows.append(invalid_row)
+
+        if invalid_rows:
             error_list = []
-            for key, value in pos_occurences.items():
-                if len(value) > 1:
-                    error_list.append(
-                        _("{0} is added multiple times on rows: {1}").format(frappe.bold(key), frappe.bold(value))
-                    )
+            for row in invalid_rows:
+                for msg in row.get("msg"):
+                    error_list.append(_("Row #{}: {}").format(row.get("idx"), msg))
+            frappe.throw(error_list, title=_("Invalid Sales Invoices"), as_list=True)
 
-            if error_list:
-                frappe.throw(error_list, title=_("Duplicate POS Invoices found"), as_list=True)
+    @frappe.whitelist()
+    def get_payment_reconciliation_details(self):
+        currency = frappe.get_cached_value("Company", self.company, "default_currency")
+        return frappe.render_template(
+            "erpnext/accounts/doctype/pos_closing_entry/closing_voucher_details.html",
+            {"data": self, "currency": currency},
+        )
 
-        def validate_pos_invoices(self):
-            invalid_rows = []
-            for d in self.pos_transactions:
-                invalid_row = {"idx": d.idx}
-                pos_invoice = frappe.db.get_values(
-                    "POS Invoice",
-                    d.pos_invoice,
-                    ["consolidated_invoice", "pos_profile", "docstatus"],
-                    as_dict=1,
-             )[0]
-                if pos_invoice.consolidated_invoice:
-                    invalid_row.setdefault("msg", []).append(_("POS Invoice is already consolidated"))
-                    invalid_rows.append(invalid_row)
-                    continue
-                if pos_invoice.pos_profile != self.pos_profile:
-                    invalid_row.setdefault("msg", []).append(
-                        _("POS Profile doesn't match {}").format(frappe.bold(self.pos_profile))
-                    )
-                if pos_invoice.docstatus != 1:
-                    invalid_row.setdefault("msg", []).append(_("POS Invoice is not submitted"))
+    def on_submit(self):
+        consolidate_pos_invoices(closing_entry=self)
+        frappe.publish_realtime(
+            f"poe_{self.pos_opening_entry}_closed",
+            self,
+            docname=f"POS Opening Entry/{self.pos_opening_entry}",
+        )
 
-                if invalid_row.get("msg"):
-                    invalid_rows.append(invalid_row)
+    def on_cancel(self):
+        unconsolidate_pos_invoices(closing_entry=self)
 
-            if invalid_rows:
-                error_list = []
-                for row in invalid_rows:
-                    for msg in row.get("msg"):
-                        error_list.append(_("Row #{}: {}").format(row.get("idx"), msg))
-                frappe.throw(error_list, title=_("Invalid POS Invoices"), as_list=True)
+    @frappe.whitelist()
+    def retry(self):
+        consolidate_pos_invoices(closing_entry=self)
 
-        @frappe.whitelist()
-        def get_payment_reconciliation_details(self):
-            currency = frappe.get_cached_value("Company", self.company, "default_currency")
-            return frappe.render_template(
-                "erpnext/accounts/doctype/pos_closing_entry/closing_voucher_details.html",
-                {"data": self, "currency": currency},
-            )
+    def update_opening_entry(self, for_cancel=False):
+        opening_entry = frappe.get_doc("POS Opening Entry", self.pos_opening_entry)
+        opening_entry.pos_closing_entry = self.name if not for_cancel else None
+        opening_entry.set_status()
+        opening_entry.save()
 
-        def on_submit(self):
-            consolidate_pos_invoices(closing_entry=self)
-            frappe.publish_realtime(
-                f"poe_{self.pos_opening_entry}_closed",
-                self,
-                docname=f"POS Opening Entry/{self.pos_opening_entry}",
-            )
-
-        def on_cancel(self):
-            unconsolidate_pos_invoices(closing_entry=self)
-
-        @frappe.whitelist()
-        def retry(self):
-            consolidate_pos_invoices(closing_entry=self)
-
-        def update_opening_entry(self, for_cancel=False):
-            opening_entry = frappe.get_doc("POS Opening Entry", self.pos_opening_entry)
-            opening_entry.pos_closing_entry = self.name if not for_cancel else None
-            opening_entry.set_status()
-            opening_entry.save()
 
 @frappe.whitelist()
 @frappe.validate_and_sanitize_search_inputs
 def get_cashiers(doctype, txt, searchfield, start, page_len, filters):
     cashiers_list = frappe.get_all("POS Profile User", filters=filters, fields=["user"], as_list=1)
     return [c for c in cashiers_list]
+
 
 @frappe.whitelist()
 def get_pos_invoices(start, end, pos_profile):
@@ -141,19 +138,18 @@ def get_pos_invoices(start, end, pos_profile):
         select
             name, timestamp(posting_date, posting_time) as "timestamp"
         from
-            `tabPOS Invoice`
+            `tabSales Invoice`
         where
-            docstatus = 1 and pos_profile = %s and ifnull(consolidated_invoice,'') = ''
+            docstatus = 1 and pos_profile = %s
         """,
         (pos_profile,),
         as_dict=1,
     )
 
     data = list(filter(lambda d: get_datetime(start) <= get_datetime(d.timestamp) <= get_datetime(end), data))
-    # need to get taxes and payments so can't avoid get_doc
-    data = [frappe.get_doc("POS Invoice", d.name).as_dict() for d in data]
-
+    data = [frappe.get_doc("Sales Invoice", d.name).as_dict() for d in data]
     return data
+
 
 def make_closing_entry_from_opening(opening_entry):
     closing_entry = frappe.new_doc("POS Closing Entry")
@@ -170,7 +166,7 @@ def make_closing_entry_from_opening(opening_entry):
     invoices = get_pos_invoices(
         closing_entry.period_start_date,
         closing_entry.period_end_date,
-        closing_entry.pos_profile,  # Removed closing_entry.user
+        closing_entry.pos_profile,
     )
 
     pos_transactions = []
@@ -229,3 +225,4 @@ def make_closing_entry_from_opening(opening_entry):
     closing_entry.set("pos_transactions", pos_transactions)
     closing_entry.set("payment_reconciliation", payments)
     closing_entry.set("taxes", taxes)
+    return closing_entry
