@@ -74,7 +74,7 @@ class ItemDailyTracker(Document):
             
             for inv in invoices:
                 items = frappe.get_all(
-                    "POS Invoice Item",
+                    "Sales Invoice Item",
                     filters={"parent": inv.pos_invoice},
                     fields=["item_code", "item_name", "qty"]
                 )
